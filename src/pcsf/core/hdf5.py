@@ -20,8 +20,6 @@ import h5py
 import numpy as np
 
 from ..exceptions import FormatError
-
-from .versioning import check_pcsf_version
 from .schema import (
     PCSF_VERSION,
     RESISTIVITY_UNIT,
@@ -36,8 +34,9 @@ from .schema import (
     TopographyRaster,
     UnstructuredMeshGeometry,
 )
+from .versioning import check_pcsf_version
 
-__all__ = ["write_pcsf", "read_pcsf"]
+__all__ = ["read_pcsf", "write_pcsf"]
 
 # Below this element count, gzip's chunking overhead outweighs the
 # space it saves — small arrays (a handful of stations, a short
@@ -51,7 +50,11 @@ _COMPRESS_MIN_SIZE = 64
 
 
 def _write_arr(
-    group: h5py.Group, name: str, arr: np.ndarray | None, *, dtype: Any = None
+    group: h5py.Group,
+    name: str,
+    arr: np.ndarray | None,
+    *,
+    dtype: Any = None,
 ) -> None:
     if arr is None:
         return
@@ -62,24 +65,34 @@ def _write_arr(
     group.create_dataset(name, data=arr, **kwargs)
 
 
-def _read_arr(group: h5py.Group | None, name: str) -> np.ndarray | None:
+def _read_arr(
+    group: h5py.Group | None, name: str
+) -> np.ndarray | None:
     if group is None or name not in group:
         return None
     return np.asarray(group[name][()])
 
 
-def _write_str_list(group: h5py.Group, name: str, values: list[str]) -> None:
+def _write_str_list(
+    group: h5py.Group, name: str, values: list[str]
+) -> None:
     str_dtype = h5py.string_dtype(encoding="utf-8")
     group.create_dataset(
-        name, data=np.asarray(list(values), dtype=object), dtype=str_dtype
+        name,
+        data=np.asarray(list(values), dtype=object),
+        dtype=str_dtype,
     )
 
 
-def _read_str_list(group: h5py.Group | None, name: str) -> list[str] | None:
+def _read_str_list(
+    group: h5py.Group | None, name: str
+) -> list[str] | None:
     if group is None or name not in group:
         return None
     return [
-        value.decode("utf-8") if isinstance(value, bytes) else str(value)
+        value.decode("utf-8")
+        if isinstance(value, bytes)
+        else str(value)
         for value in group[name][()]
     ]
 
@@ -91,10 +104,14 @@ def _json_default(value: Any) -> Any:
         return int(value)
     if isinstance(value, np.floating):
         return float(value)
-    raise TypeError(f"object of type {type(value)!r} is not JSON serializable")
+    raise TypeError(
+        f"object of type {type(value)!r} is not JSON serializable"
+    )
 
 
-def _write_json(container: h5py.Group | h5py.File, name: str, obj: Any) -> None:
+def _write_json(
+    container: h5py.Group | h5py.File, name: str, obj: Any
+) -> None:
     text = json.dumps(obj, default=_json_default)
     container.create_dataset(
         name, data=text, dtype=h5py.string_dtype(encoding="utf-8")
@@ -174,7 +191,9 @@ def _read_grid3d(group: h5py.Group) -> Grid3DGeometry:
     )
 
 
-def _write_mesh(group: h5py.Group, geo: UnstructuredMeshGeometry) -> None:
+def _write_mesh(
+    group: h5py.Group, geo: UnstructuredMeshGeometry
+) -> None:
     group.attrs["kind"] = geo.kind
     _write_arr(group, "nodes", geo.nodes)
     _write_arr(group, "connectivity", geo.connectivity, dtype=np.int64)
@@ -191,7 +210,9 @@ def _read_mesh(group: h5py.Group) -> UnstructuredMeshGeometry:
     )
 
 
-def _write_multiline(group: h5py.Group, geo: MultilineGeometry) -> None:
+def _write_multiline(
+    group: h5py.Group, geo: MultilineGeometry
+) -> None:
     group.attrs["kind"] = geo.kind
     line_ids = [line.line_id for line in geo.lines]
     _write_str_list(group, "line_order", line_ids)
@@ -199,7 +220,9 @@ def _write_multiline(group: h5py.Group, geo: MultilineGeometry) -> None:
     lines_group = group.create_group("lines")
     for line in geo.lines:
         line_group = lines_group.create_group(line.line_id)
-        _write_grid2d(line_group.create_group("geometry"), line.geometry)
+        _write_grid2d(
+            line_group.create_group("geometry"), line.geometry
+        )
         _write_arr(line_group, "resistivity", line.resistivity)
         line_group.attrs["offset_y"] = float(line.offset_y)
         line_group.attrs["offset_kind"] = line.offset_kind
@@ -231,7 +254,9 @@ def _read_multiline(group: h5py.Group) -> MultilineGeometry:
                 offset_kind=_attr_str(
                     line_group.attrs, "offset_kind", "synthetic"
                 ),
-                azimuth_deg=_attr_float(line_group.attrs, "azimuth_deg"),
+                azimuth_deg=_attr_float(
+                    line_group.attrs, "azimuth_deg"
+                ),
             )
         )
 
@@ -244,11 +269,14 @@ def _read_multiline(group: h5py.Group) -> MultilineGeometry:
             derivation_method=_attr_str(
                 dv_group.attrs, "derivation_method", "linear_interp"
             ),
-            derived_from=_read_str_list(dv_group, "derived_from") or [],
+            derived_from=_read_str_list(dv_group, "derived_from")
+            or [],
             synthesized=bool(dv_group.attrs.get("synthesized", True)),
         )
 
-    return MultilineGeometry(lines=lines, derived_volume=derived_volume)
+    return MultilineGeometry(
+        lines=lines, derived_volume=derived_volume
+    )
 
 
 _GEOMETRY_WRITERS = {
@@ -287,24 +315,36 @@ def write_pcsf(model: PCSFModel, path: str | PathLike) -> Path:
 
     Raises
     ------
-    ValueError
+    TypeError
+        If *model* is not a :class:`PCSFModel`.
+    GeometryError, EncodingError
         If *model* fails :meth:`PCSFModel.validate`.
+
+    See Also
+    --------
+    read_pcsf : Inverse operation.
+    pcsf.core.text.write_pcsm : Text encoding.
 
     Examples
     --------
-    >>> import numpy as np
-    >>> from pcsf import Grid2DGeometry, PCSFModel, write_pcsf, read_pcsf
-    >>> geometry = Grid2DGeometry(x=np.array([0.0, 100.0]), z=np.array([10.0, 50.0]))
+    >>> import os, tempfile
+    >>> from pcsf import Grid2DGeometry, PCSFModel
+    >>> from pcsf.core.hdf5 import read_pcsf, write_pcsf
     >>> model = PCSFModel(
-    ...     geometry=geometry,
-    ...     resistivity=np.array([[100.0, 120.0], [50.0, 60.0]]),
+    ...     geometry=Grid2DGeometry(x=[0.0, 100.0], z=[10.0, 50.0]),
+    ...     resistivity=[[100.0, 120.0], [50.0, 60.0]],
     ...     source_backend="occam2d",
     ... )
-    >>> path = write_pcsf(model, "example.pcsf")  # doctest: +SKIP
-    >>> round_tripped = read_pcsf(path)  # doctest: +SKIP
+    >>> with tempfile.TemporaryDirectory() as tmp:
+    ...     path = write_pcsf(model, os.path.join(tmp, "m.pcsf"))
+    ...     back = read_pcsf(path)
+    >>> bool((back.resistivity == model.resistivity).all())
+    True
     """
     if not isinstance(model, PCSFModel):
-        raise TypeError(f"model must be a PCSFModel, got {type(model)!r}")
+        raise TypeError(
+            f"model must be a PCSFModel, got {type(model)!r}"
+        )
     model.validate()
 
     path = Path(path)
@@ -328,16 +368,24 @@ def write_pcsf(model: PCSFModel, path: str | PathLike) -> Path:
 
         model_group = fh.create_group("model")
         _write_arr(model_group, "resistivity", model.resistivity)
-        _write_arr(model_group, "resistivity_native", model.resistivity_native)
+        _write_arr(
+            model_group, "resistivity_native", model.resistivity_native
+        )
         if model.resistivity_native_encoding is not None:
-            model_group.attrs["encoding"] = model.resistivity_native_encoding
+            model_group.attrs["encoding"] = (
+                model.resistivity_native_encoding
+            )
         _write_arr(model_group, "uncertainty", model.uncertainty)
         _write_arr(model_group, "sensitivity", model.sensitivity)
         _write_arr(
-            model_group, "resistivity_by_region", model.resistivity_by_region
+            model_group,
+            "resistivity_by_region",
+            model.resistivity_by_region,
         )
         _write_arr(
-            model_group, "resistivity_by_node", model.resistivity_by_node
+            model_group,
+            "resistivity_by_node",
+            model.resistivity_by_node,
         )
 
         if model.stations is not None:
@@ -347,7 +395,9 @@ def write_pcsf(model: PCSFModel, path: str | PathLike) -> Path:
             _write_arr(st_group, "y", model.stations.y)
             _write_arr(st_group, "z", model.stations.z)
             if model.stations.line_id is not None:
-                _write_str_list(st_group, "line_id", model.stations.line_id)
+                _write_str_list(
+                    st_group, "line_id", model.stations.line_id
+                )
             if model.stations.lon is not None:
                 _write_arr(st_group, "lon", model.stations.lon)
                 _write_arr(st_group, "lat", model.stations.lat)
@@ -359,13 +409,17 @@ def write_pcsf(model: PCSFModel, path: str | PathLike) -> Path:
                 r_group = topo_group.create_group("raster")
                 _write_arr(r_group, "x", model.topography.x)
                 _write_arr(r_group, "y", model.topography.y)
-                _write_arr(r_group, "elevation", model.topography.elevation)
+                _write_arr(
+                    r_group, "elevation", model.topography.elevation
+                )
             else:
                 ps_group = topo_group.create_group("per_station")
                 _write_str_list(
                     ps_group, "station_id", model.topography.station_id
                 )
-                _write_arr(ps_group, "elevation", model.topography.elevation)
+                _write_arr(
+                    ps_group, "elevation", model.topography.elevation
+                )
 
         if model.survey:
             _write_json(fh, "survey_json", model.survey)
@@ -379,7 +433,6 @@ def write_pcsf(model: PCSFModel, path: str | PathLike) -> Path:
             _write_json(fh, "metadata_json", model.metadata)
 
         if model.boreholes is not None:
-
             boreholes = fh.create_group("boreholes")
             boreholes.attrs["kind"] = "pcbh"
             boreholes.attrs["version"] = "0.1.0"
@@ -407,37 +460,52 @@ def read_pcsf(path: str | PathLike) -> PCSFModel:
 
     Raises
     ------
-    ValueError
-        If ``pcsf_version`` is missing, malformed, or names an
-        unrecognised MAJOR version (see the PCSF specification (spec/)
-        section 5); if ``geometry/kind`` is missing or not a
-        recognised value; or if the reconstructed model fails
+    FormatError
+        If ``pcsf_version`` or the geometry group is missing,
+        or the geometry kind is unknown.
+    VersionError
+        If ``pcsf_version`` is malformed or of another major
+        version (specification, section 5).
+    GeometryError, EncodingError
+        If the reconstructed model fails
         :meth:`PCSFModel.validate`.
 
     Warns
     -----
     UserWarning
-        If the file's ``pcsf_version`` MINOR component is newer than
-        this reader's — fields added since then are silently ignored
-        rather than causing a hard failure.
+        If the file's minor version is newer than this
+        reader's; fields added since then are ignored.
+
+    See Also
+    --------
+    write_pcsf : Inverse operation.
+    pcsf.read : Read either encoding.
+
+    Examples
+    --------
+    See :func:`write_pcsf`.
     """
     path = Path(path)
 
     with h5py.File(path, "r") as fh:
         if "pcsf_version" not in fh.attrs:
             raise FormatError(
-                f"{path}: missing required 'pcsf_version' root attribute"
+                f"{path}: missing required 'pcsf_version' "
+                "root attribute"
             )
         check_pcsf_version(str(fh.attrs["pcsf_version"]), PCSF_VERSION)
 
         if "geometry" not in fh:
-            raise FormatError(f"{path}: missing required 'geometry' group")
+            raise FormatError(
+                f"{path}: missing required 'geometry' group"
+            )
         geometry_group = fh["geometry"]
         kind = _attr_str(geometry_group.attrs, "kind")
         reader = _GEOMETRY_READERS.get(kind)
         if reader is None:
             raise FormatError(
-                f"{path}: unknown geometry kind {kind!r}; expected one "
+                f"{path}: unknown geometry kind {kind!r}; "
+                "expected one "
                 f"of {tuple(_GEOMETRY_READERS)}"
             )
         geometry = reader(geometry_group)
@@ -463,7 +531,9 @@ def read_pcsf(path: str | PathLike) -> PCSFModel:
         topography = None
         if "topography" in fh:
             topo_group = fh["topography"]
-            topo_kind = _attr_str(topo_group.attrs, "kind", "per_station")
+            topo_kind = _attr_str(
+                topo_group.attrs, "kind", "per_station"
+            )
             if topo_kind == "raster":
                 r_group = topo_group["raster"]
                 topography = TopographyRaster(
@@ -474,24 +544,28 @@ def read_pcsf(path: str | PathLike) -> PCSFModel:
             elif topo_kind == "per_station":
                 ps_group = topo_group["per_station"]
                 topography = TopographyPerStation(
-                    station_id=_read_str_list(ps_group, "station_id") or [],
+                    station_id=_read_str_list(ps_group, "station_id")
+                    or [],
                     elevation=_read_arr(ps_group, "elevation"),
                 )
 
         history = {}
         if "history" in fh:
             hist_group = fh["history"]
-            history = {key: _read_arr(hist_group, key) for key in hist_group}
+            history = {
+                key: _read_arr(hist_group, key) for key in hist_group
+            }
 
         boreholes = None
         if "boreholes" in fh:
-
             boreholes = _read_json(fh["boreholes"], "association_json")
 
         model = PCSFModel(
             geometry=geometry,
             resistivity=_read_arr(model_group, "resistivity"),
-            resistivity_native=_read_arr(model_group, "resistivity_native"),
+            resistivity_native=_read_arr(
+                model_group, "resistivity_native"
+            ),
             resistivity_native_encoding=encoding,
             uncertainty=_read_arr(model_group, "uncertainty"),
             sensitivity=_read_arr(model_group, "sensitivity"),
@@ -505,7 +579,9 @@ def read_pcsf(path: str | PathLike) -> PCSFModel:
             topography=topography,
             survey=_read_json(fh, "survey_json"),
             history=history,
-            source_backend=_attr_str(fh.attrs, "source_backend", "generic"),
+            source_backend=_attr_str(
+                fh.attrs, "source_backend", "generic"
+            ),
             created_by=_attr_str(fh.attrs, "created_by"),
             created_at=_attr_str(fh.attrs, "created_at"),
             crs=(str(fh.attrs["crs"]) if "crs" in fh.attrs else None),
@@ -521,9 +597,9 @@ def read_pcsf(path: str | PathLike) -> PCSFModel:
 def _association_payload(boreholes: Any) -> dict:
     """JSON-ready payload of a borehole association.
 
-    pcsf stores the optional ``boreholes`` group without interpreting it;
-    the borehole companion format (a plugin) gives it meaning. A plain
-    dictionary is written as is; an object is written through its
+    pcsf stores the optional ``boreholes`` group without interpreting
+    it; the borehole companion format (a plugin) gives it meaning. A
+    plain dictionary is written as is; an object is written through its
     ``to_dict()`` method.
     """
     if isinstance(boreholes, dict):
@@ -532,6 +608,7 @@ def _association_payload(boreholes: Any) -> dict:
     if callable(to_dict):
         return to_dict()
     raise FormatError(
-        f"cannot serialise boreholes of type {type(boreholes).__name__}; "
+        "cannot serialise boreholes of type "
+        f"{type(boreholes).__name__}; "
         "pass a dict or an object with to_dict()"
     )

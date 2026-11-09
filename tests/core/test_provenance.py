@@ -9,7 +9,10 @@ import hashlib
 
 import pytest
 
-from pcsf.core.provenance import ModelProvenance, compute_checkpoint_hash
+from pcsf.core.provenance import (
+    ModelProvenance,
+    compute_checkpoint_hash,
+)
 
 
 class TestModelProvenance:
@@ -63,7 +66,9 @@ class TestComputeCheckpointHash:
         expected = hashlib.sha256(payload).hexdigest()
         assert compute_checkpoint_hash(path) == expected
 
-    def test_streams_in_chunks_without_loading_whole_file(self, tmp_path):
+    def test_streams_in_chunks_without_loading_whole_file(
+        self, tmp_path
+    ):
         path = tmp_path / "weights.bin"
         payload = b"\x00\x01\x02\x03" * 2048
         path.write_bytes(payload)

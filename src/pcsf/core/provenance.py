@@ -1,15 +1,17 @@
-"""Machine-learning-model provenance for a PCSF/PCSM AI-inversion result.
+"""Provenance of the machine-learning model behind a result.
 
-This is distinct from survey or data provenance,
-which describes *survey/data* provenance (who collected/submitted an EM
-dataset). :class:`ModelProvenance` describes the *model* that produced a
-resistivity result -- its architecture, training framework, checkpoint, and
-hyperparameters -- so a shared ``.pcsf``/``.pcsm`` file is independently
-checkable by anyone re-running the model, not just re-readable.
+This is distinct from survey or data provenance, which describes
+*survey/data* provenance (who collected/submitted an EM dataset).
+:class:`ModelProvenance` describes the *model* that produced a
+resistivity result -- its architecture, training framework, checkpoint,
+and hyperparameters -- so a shared ``.pcsf``/``.pcsm`` file is
+independently checkable by anyone re-running the model, not just
+re-readable.
 
-Every field is optional free text: this is meant to be usable by literally
-any AI/DL inversion tool, including third-party ones with no dependency on
-pcsf at all, so nothing here is enforced beyond basic typing.
+Every field is optional free text: this is meant to be usable by
+literally any AI/DL inversion tool, including third-party ones with no
+dependency on pcsf at all, so nothing here is enforced beyond basic
+typing.
 """
 
 from __future__ import annotations
@@ -32,8 +34,8 @@ class ModelProvenance(PCSFObject):
     Parameters
     ----------
     architecture : str, optional
-        Free-text model family/architecture, e.g. ``"UNet"``, ``"GCN"``,
-        ``"ResNet18"``, or any third-party name.
+        Free-text model family/architecture, e.g. ``"UNet"``,
+        ``"GCN"``, ``"ResNet18"``, or any third-party name.
     framework, framework_version : str, optional
         e.g. ``"pytorch"``/``"2.3.0"``, ``"tensorflow"``/``"2.16.1"``.
     checkpoint : str, optional
@@ -95,11 +97,29 @@ class ModelProvenance(PCSFObject):
         self.extra = dict(self.extra or {})
 
     def validate(self) -> None:
-        if self.random_seed is not None and not isinstance(self.random_seed, int):
-            raise TypeError("ModelProvenance.random_seed must be an int or None")
+        """Check field types.
+
+        Raises
+        ------
+        TypeError
+            If *random_seed* is neither an int nor None.
+        """
+        if self.random_seed is not None and not isinstance(
+            self.random_seed, int
+        ):
+            raise TypeError(
+                "ModelProvenance.random_seed must be an int or None"
+            )
 
     def to_dict(self) -> dict[str, Any]:
-        """Plain-dict form, suitable for ``PCSFModel.metadata['model_provenance']``."""
+        """Plain dictionary form of the provenance.
+
+        Returns
+        -------
+        dict
+            Every field, with containers copied; suitable for
+            ``PCSFModel.metadata["model_provenance"]``.
+        """
         return {
             "architecture": self.architecture,
             "framework": self.framework,
@@ -117,13 +137,16 @@ class ModelProvenance(PCSFObject):
         }
 
 
-def compute_checkpoint_hash(path: str | PathLike, *, chunk_size: int = 1 << 20) -> str:
-    """SHA-256 hex digest of a model-checkpoint file, streamed in chunks.
+def compute_checkpoint_hash(
+    path: str | PathLike, *, chunk_size: int = 1 << 20
+) -> str:
+    """SHA-256 of a model-checkpoint file, read in chunks.
 
     Parameters
     ----------
     path : path-like
-        The checkpoint file to hash (e.g. a ``.pt``/``.h5``/``.onnx`` file).
+        The checkpoint file to hash (e.g. a ``.pt``/``.h5``/``.onnx``
+        file).
     chunk_size : int, default 1 MiB
         Read block size; large checkpoints are hashed without loading
         the whole file into memory.

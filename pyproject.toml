@@ -89,18 +89,19 @@ pcsf = ["py.typed"]
 version = { attr = "pcsf._version.__version__" }
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
-addopts = "-ra"
+testpaths = ["tests", "src/pcsf"]
+addopts = "-ra --doctest-modules"
+doctest_optionflags = ["NORMALIZE_WHITESPACE", "ELLIPSIS"]
 filterwarnings = ["error::DeprecationWarning:pcsf.*"]
 
 [tool.ruff]
-line-length = 99
+line-length = 71
 target-version = "py39"
 src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "NPY", "RUF"]
-ignore = ["E501"]
+ignore = []
 
 [tool.mypy]
 python_version = "3.9"

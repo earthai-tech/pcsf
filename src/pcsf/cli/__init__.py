@@ -1,4 +1,4 @@
-"""Command-line interface (``pcsf`` executable); see :mod:`pcsf.cli.main`."""
+"""Command-line interface; see :mod:`pcsf.cli.main`."""
 
 from .main import main
 

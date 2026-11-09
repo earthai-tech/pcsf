@@ -12,7 +12,8 @@ Two numbers are kept apart on purpose:
 
 __version__ = "0.1.0.dev0"
 
-#: Specification version written to every file (``pcsf_version`` / ``PCSM_VERSION``).
+#: Specification version written to every file (``pcsf_version`` /
+#: ``PCSM_VERSION``).
 FORMAT_VERSION = "0.1.0"
 
 __all__ = ["FORMAT_VERSION", "__version__"]

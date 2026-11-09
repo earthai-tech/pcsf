@@ -1,4 +1,4 @@
-"""Tests for the public facade, the registry and the foundation modules."""
+"""Tests for the public facade, registry and foundation modules."""
 
 import logging
 import warnings
@@ -9,9 +9,19 @@ import pytest
 import pcsf
 from pcsf import Grid2DGeometry, PCSFModel
 from pcsf.api.property import MetadataMixin, PCSFObject
-from pcsf.api.registry import ENCODINGS, Registry, get_encoding, register_encoding
+from pcsf.api.registry import (
+    ENCODINGS,
+    Registry,
+    get_encoding,
+    register_encoding,
+)
 from pcsf.compat.optional import import_optional, is_available
-from pcsf.decorators import deprecated, log_call, requires, validates_model
+from pcsf.decorators import (
+    deprecated,
+    log_call,
+    requires,
+    validates_model,
+)
 from pcsf.exceptions import (
     EncodingError,
     FormatError,
@@ -26,21 +36,29 @@ from pcsf.utils.text import format_float
 
 def _model():
     native = np.array([[1.0, 2.0, 3.0], [1.5, 2.5, 3.5]])
-    return PCSFModel(geometry=Grid2DGeometry(x=[0.0, 10.0, 20.0], z=[5.0, 15.0]),
-                     resistivity=10.0 ** native, resistivity_native=native,
-                     resistivity_native_encoding="log10")
+    return PCSFModel(
+        geometry=Grid2DGeometry(x=[0.0, 10.0, 20.0], z=[5.0, 15.0]),
+        resistivity=10.0**native,
+        resistivity_native=native,
+        resistivity_native_encoding="log10",
+    )
 
 
-# ------------------------------------------------------------------ facade
-@pytest.mark.parametrize("suffix,kind", [(".pcsf", "pcsf"), (".pcsm", "pcsm"),
-                                         (".pcsm.gz", "pcsm.gz")])
+# ------------------------------------------------------------------
+# facade
+@pytest.mark.parametrize(
+    "suffix,kind",
+    [(".pcsf", "pcsf"), (".pcsm", "pcsm"), (".pcsm.gz", "pcsm.gz")],
+)
 def test_write_detect_read_roundtrip(tmp_path, suffix, kind):
     m = _model()
     p = pcsf.write(m, tmp_path / f"m{suffix}")
     assert pcsf.detect(p) == kind
     back = pcsf.read(p)
     assert np.array_equal(back.resistivity, m.resistivity)
-    assert np.array_equal(back.resistivity_native, m.resistivity_native)
+    assert np.array_equal(
+        back.resistivity_native, m.resistivity_native
+    )
 
 
 def test_detect_ignores_extension(tmp_path):
@@ -83,17 +101,27 @@ def test_bad_suffix_and_not_a_file(tmp_path):
         pcsf.read(junk)
 
 
-# ------------------------------------------------------------------ exceptions
+# ------------------------------------------------------------------
+# exceptions
 def test_exception_hierarchy():
-    for cls in (FormatError, VersionError, EncodingError, RegistryError, MissingDependencyError):
+    for cls in (
+        FormatError,
+        VersionError,
+        EncodingError,
+        RegistryError,
+        MissingDependencyError,
+    ):
         assert issubclass(cls, PCSFError)
     assert issubclass(VersionError, ValueError)
     assert issubclass(MissingDependencyError, ImportError)
-    err = MissingDependencyError("netCDF4", extra="emc", feature="EMC files")
+    err = MissingDependencyError(
+        "netCDF4", extra="emc", feature="EMC files"
+    )
     assert 'pip install "pcsf[emc]"' in str(err)
 
 
-# ------------------------------------------------------------------ registry
+# ------------------------------------------------------------------
+# registry
 def test_registry_refuses_overwrite():
     reg = Registry("thing")
     reg.register("a", 1)
@@ -108,13 +136,18 @@ def test_registry_refuses_overwrite():
 def test_plugin_encoding_is_accepted_by_schema(tmp_path):
     name = "test_neg_log10"
     if name not in ENCODINGS:
+
         @register_encoding(name, description="test encoding")
         def _f(r):
             return 10.0 ** (-r)
+
     native = np.array([[-1.0, -2.0]])
-    m = PCSFModel(geometry=Grid2DGeometry(x=[0.0, 1.0], z=[1.0]),
-                  resistivity=10.0 ** (-native), resistivity_native=native,
-                  resistivity_native_encoding=name)
+    m = PCSFModel(
+        geometry=Grid2DGeometry(x=[0.0, 1.0], z=[1.0]),
+        resistivity=10.0 ** (-native),
+        resistivity_native=native,
+        resistivity_native_encoding=name,
+    )
     m.validate()
     assert pcsf.validate(m).passed
     ENCODINGS.unregister(name)
@@ -122,7 +155,8 @@ def test_plugin_encoding_is_accepted_by_schema(tmp_path):
         get_encoding(name)
 
 
-# ------------------------------------------------------------------ property
+# ------------------------------------------------------------------
+# property
 def test_pcsfobject_repr_clone_update():
     class Obj(PCSFObject, MetadataMixin):
         def __init__(self):
@@ -144,11 +178,13 @@ def test_pcsfobject_repr_clone_update():
     assert o.metadata_dict() == {"a": 1}
 
 
-# ------------------------------------------------------------------ decorators
+# ------------------------------------------------------------------
+# decorators
 def test_requires_reports_extra():
     @requires("definitely_not_a_module_xyz", feature="test")
     def f():
         return 1
+
     with pytest.raises(MissingDependencyError):
         f()
     assert requires("numpy")(lambda: 2)() == 2
@@ -158,6 +194,7 @@ def test_deprecated_warns():
     @deprecated(since="0.1", use="g")
     def f():
         return 3
+
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
         assert f() == 3
@@ -168,6 +205,7 @@ def test_validates_model_decorator():
     @validates_model(arg="model")
     def f(model):
         return model.kind
+
     assert f(_model()) == "grid2d"
 
 
@@ -175,11 +213,13 @@ def test_log_call(caplog):
     @log_call()
     def f():
         return 4
+
     with caplog.at_level(logging.DEBUG, logger="pcsf"):
         assert f() == 4
 
 
-# ------------------------------------------------------------------ compat and utils
+# ------------------------------------------------------------------
+# compat and utils
 def test_optional_imports():
     assert is_available("numpy")
     assert not is_available("definitely_not_a_module_xyz")

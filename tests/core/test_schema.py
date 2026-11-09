@@ -21,18 +21,24 @@ from pcsf.core.schema import (
 
 
 def _grid2d() -> Grid2DGeometry:
-    return Grid2DGeometry(x=np.array([0.0, 100.0, 200.0]), z=np.array([10.0, 50.0]))
+    return Grid2DGeometry(
+        x=np.array([0.0, 100.0, 200.0]), z=np.array([10.0, 50.0])
+    )
 
 
 def _grid3d() -> Grid3DGeometry:
     return Grid3DGeometry(
-        x=np.array([0.0, 100.0]), y=np.array([0.0, 50.0, 100.0]), z=np.array([10.0, 50.0, 200.0])
+        x=np.array([0.0, 100.0]),
+        y=np.array([0.0, 50.0, 100.0]),
+        z=np.array([10.0, 50.0, 200.0]),
     )
 
 
 def _mesh() -> UnstructuredMeshGeometry:
     return UnstructuredMeshGeometry(
-        nodes=np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0], [1.0, 1.0]]),
+        nodes=np.array(
+            [[0.0, 0.0], [1.0, 0.0], [0.0, 1.0], [1.0, 1.0]]
+        ),
         connectivity=np.array([[0, 1, 2], [1, 3, 2]]),
         region_ids=np.array([0, 1]),
     )
@@ -44,14 +50,18 @@ class TestGrid2DGeometry:
 
     def test_rejects_mismatched_x_nodes(self):
         geo = Grid2DGeometry(
-            x=np.array([0.0, 100.0]), z=np.array([10.0]), x_nodes=np.array([0.0, 50.0])
+            x=np.array([0.0, 100.0]),
+            z=np.array([10.0]),
+            x_nodes=np.array([0.0, 50.0]),
         )
         with pytest.raises(ValueError, match="x_nodes"):
             geo.validate()
 
     def test_rejects_bad_origin_shape(self):
         geo = Grid2DGeometry(
-            x=np.array([0.0]), z=np.array([10.0]), origin=np.array([0.0, 0.0, 0.0])
+            x=np.array([0.0]),
+            z=np.array([10.0]),
+            origin=np.array([0.0, 0.0, 0.0]),
         )
         with pytest.raises(ValueError, match="origin"):
             geo.validate()
@@ -59,12 +69,16 @@ class TestGrid2DGeometry:
 
 class TestGrid3DGeometry:
     def test_resistivity_shape_is_z_y_x(self):
-        # Deliberately (n_z, n_y, n_x) to match ModEM's own native order.
+        # Deliberately (n_z, n_y, n_x) to match ModEM's own native
+        # order.
         assert _grid3d().resistivity_shape == (3, 3, 2)
 
     def test_rejects_negative_n_air(self):
         geo = Grid3DGeometry(
-            x=np.array([0.0]), y=np.array([0.0]), z=np.array([0.0]), n_air=-1
+            x=np.array([0.0]),
+            y=np.array([0.0]),
+            z=np.array([0.0]),
+            n_air=-1,
         )
         with pytest.raises(ValueError, match="n_air"):
             geo.validate()
@@ -110,14 +124,18 @@ class TestMultilineGeometry:
 
     def test_rejects_duplicate_line_ids(self):
         line = LineEntry(
-            line_id="L1", geometry=_grid2d(), resistivity=np.ones((2, 3))
+            line_id="L1",
+            geometry=_grid2d(),
+            resistivity=np.ones((2, 3)),
         )
         with pytest.raises(ValueError, match="duplicate"):
             MultilineGeometry(lines=[line, line]).validate()
 
     def test_line_entry_rejects_shape_mismatch(self):
         line = LineEntry(
-            line_id="L1", geometry=_grid2d(), resistivity=np.ones((5, 5))
+            line_id="L1",
+            geometry=_grid2d(),
+            resistivity=np.ones((5, 5)),
         )
         with pytest.raises(ValueError, match="resistivity shape"):
             line.validate()
@@ -157,12 +175,15 @@ class TestMultilineGeometry:
 class TestStationTable:
     def test_requires_matching_lengths(self):
         table = StationTable(name=["A", "B"], x=np.array([0.0]))
-        with pytest.raises(ValueError, match="StationTable.x"):
+        with pytest.raises(ValueError, match=r"StationTable.x"):
             table.validate()
 
     def test_lon_lat_optional_and_default_none(self):
         table = StationTable(
-            name=["A", "B"], x=np.array([0.0, 1.0]), y=np.zeros(2), z=np.zeros(2)
+            name=["A", "B"],
+            x=np.array([0.0, 1.0]),
+            y=np.zeros(2),
+            z=np.zeros(2),
         )
         table.validate()
         assert table.lon is None and table.lat is None
@@ -188,7 +209,7 @@ class TestStationTable:
             lon=np.array([10.0]),
             lat=np.array([50.0, 50.1]),
         )
-        with pytest.raises(ValueError, match="StationTable.lon"):
+        with pytest.raises(ValueError, match=r"StationTable.lon"):
             table.validate()
 
     def test_lon_without_lat_raises(self):
@@ -206,7 +227,9 @@ class TestStationTable:
 class TestTopographyRaster:
     def test_requires_1d_x_and_y(self):
         raster = TopographyRaster(
-            x=np.zeros((2, 2)), y=np.array([0.0, 1.0]), elevation=np.zeros((2, 2))
+            x=np.zeros((2, 2)),
+            y=np.array([0.0, 1.0]),
+            elevation=np.zeros((2, 2)),
         )
         with pytest.raises(ValueError, match="must be 1-D"):
             raster.validate()
@@ -233,23 +256,33 @@ class TestTopographyRaster:
 class TestPCSFModel:
     def test_grid2d_requires_resistivity(self):
         model = PCSFModel(geometry=_grid2d(), source_backend="occam2d")
-        with pytest.raises(ValueError, match="resistivity is required"):
+        with pytest.raises(
+            ValueError, match="resistivity is required"
+        ):
             model.validate()
 
     def test_grid2d_rejects_wrong_resistivity_shape(self):
-        model = PCSFModel(geometry=_grid2d(), resistivity=np.ones((5, 5)))
+        model = PCSFModel(
+            geometry=_grid2d(), resistivity=np.ones((5, 5))
+        )
         with pytest.raises(ValueError, match="resistivity shape"):
             model.validate()
 
     def test_grid2d_valid_model_passes(self):
-        model = PCSFModel(geometry=_grid2d(), resistivity=np.ones((2, 3)) * 100.0)
+        model = PCSFModel(
+            geometry=_grid2d(), resistivity=np.ones((2, 3)) * 100.0
+        )
         model.validate()
         assert model.kind == "grid2d"
 
     def test_multiline_rejects_container_level_resistivity(self):
         geo = MultilineGeometry(
             lines=[
-                LineEntry(line_id="L1", geometry=_grid2d(), resistivity=np.ones((2, 3)))
+                LineEntry(
+                    line_id="L1",
+                    geometry=_grid2d(),
+                    resistivity=np.ones((2, 3)),
+                )
             ]
         )
         model = PCSFModel(geometry=geo, resistivity=np.ones((2, 3)))
@@ -259,7 +292,11 @@ class TestPCSFModel:
     def test_multiline_without_container_resistivity_passes(self):
         geo = MultilineGeometry(
             lines=[
-                LineEntry(line_id="L1", geometry=_grid2d(), resistivity=np.ones((2, 3)))
+                LineEntry(
+                    line_id="L1",
+                    geometry=_grid2d(),
+                    resistivity=np.ones((2, 3)),
+                )
             ]
         )
         model = PCSFModel(geometry=geo)
@@ -271,7 +308,9 @@ class TestPCSFModel:
             resistivity=np.ones((2, 3)),
             resistivity_native=np.log10(np.ones((2, 3))),
         )
-        with pytest.raises(ValueError, match="resistivity_native_encoding"):
+        with pytest.raises(
+            ValueError, match="resistivity_native_encoding"
+        ):
             model.validate()
 
     def test_uncertainty_shape_must_match_resistivity(self):
@@ -313,7 +352,9 @@ class TestPCSFModel:
             resistivity=np.array([100.0, 200.0]),
             resistivity_by_node=np.array([100.0, 200.0]),
         )
-        with pytest.raises(ValueError, match="resistivity_by_node shape"):
+        with pytest.raises(
+            ValueError, match="resistivity_by_node shape"
+        ):
             model.validate()
 
     def test_resistivity_by_node_rejected_for_non_mesh_geometry(self):
@@ -322,11 +363,15 @@ class TestPCSFModel:
             resistivity=np.ones((2, 3)) * 100.0,
             resistivity_by_node=np.array([1.0, 2.0]),
         )
-        with pytest.raises(ValueError, match="resistivity_by_node is only valid"):
+        with pytest.raises(
+            ValueError, match="resistivity_by_node is only valid"
+        ):
             model.validate()
 
     def test_repr_summarizes_arrays_instead_of_dumping_them(self):
-        model = PCSFModel(geometry=_grid2d(), resistivity=np.ones((2, 3)) * 100.0)
+        model = PCSFModel(
+            geometry=_grid2d(), resistivity=np.ones((2, 3)) * 100.0
+        )
         text = repr(model)
         assert "ndarray(shape=" in text
         assert "100.0" not in text

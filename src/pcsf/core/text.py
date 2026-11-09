@@ -1,12 +1,14 @@
 r"""PCSM — ASCII sibling of PCSF (Portable Common Subsurface Markup).
 
 PCSF (:mod:`pcsf.core.hdf5`, HDF5, ``.pcsf``) is the canonical,
-machine-optimal container. PCSM (``.pcsm``) is a lossless, hand-editable
-*text projection* of the exact same :class:`~pcsf.core.schema.PCSFModel`
--- the same relationship netCDF (binary) has to CDL, its ``ncdump``/
-``ncgen`` ASCII text form: PCSF stays the source of truth; PCSM is a
-derived, round-trippable serialisation for scripting, teaching, diffing,
-and hand inspection, not a second schema to keep in sync.
+machine-optimal container. PCSM (``.pcsm``) is a lossless,
+hand-editable
+*text projection* of the exact same
+:class:`~pcsf.core.schema.PCSFModel` -- the same relationship netCDF
+(binary) has to CDL, its ``ncdump``/ ``ncgen`` ASCII text form: PCSF
+stays the source of truth; PCSM is a derived, round-trippable
+serialisation for scripting, teaching, diffing, and hand inspection,
+not a second schema to keep in sync.
 
 Grammar (deliberately not YAML/JSON, so a reader can be hand-written in
 any language with no library, the same way Occam2D/ModEM/MARE2DEM's own
@@ -55,8 +57,6 @@ from typing import Any
 import numpy as np
 
 from ..exceptions import PCSMSyntaxError
-
-from .versioning import check_pcsf_version
 from .schema import (
     PCSF_VERSION,
     RESISTIVITY_UNIT,
@@ -71,14 +71,15 @@ from .schema import (
     TopographyRaster,
     UnstructuredMeshGeometry,
 )
+from .versioning import check_pcsf_version
 
 __all__ = [
-    "write_pcsm",
-    "read_pcsm",
     "pcsf_to_pcsm",
     "pcsm_to_pcsf",
-    "read_pcsf_or_pcsm",
     "peek_kind",
+    "read_pcsf_or_pcsm",
+    "read_pcsm",
+    "write_pcsm",
 ]
 
 _LINE_ID_NA = "-"
@@ -128,7 +129,8 @@ class _Writer:
         self.lines.append(text)
 
     def raw(self, keyword: str, value: str) -> None:
-        # Verbatim, no comment-stripping on read -- see module docstring.
+        # Verbatim, no comment-stripping on read -- see module
+        # docstring.
         self.lines.append(f"{keyword} {value}")
 
     def block(
@@ -160,19 +162,25 @@ class _Writer:
             self.lines.append(" ".join(s.rjust(width) for s in row))
         self.lines.append(f"END_{keyword}")
 
-    def aligned_rows(self, rows: list[list[str]], *, numeric: list[bool]) -> None:
+    def aligned_rows(
+        self, rows: list[list[str]], *, numeric: list[bool]
+    ) -> None:
         """Append *rows* (already-tokenised strings) with each column
         padded to that column's own widest value -- numeric columns
-        right-justified, text columns (station names, ids) left-justified.
+        right-justified, text columns (station names, ids)
+        left-justified.
         """
         if not rows:
             return
         widths = [
-            max(len(row[i]) for row in rows) for i in range(len(rows[0]))
+            max(len(row[i]) for row in rows)
+            for i in range(len(rows[0]))
         ]
         for row in rows:
             cells = [
-                cell.rjust(widths[i]) if numeric[i] else cell.ljust(widths[i])
+                cell.rjust(widths[i])
+                if numeric[i]
+                else cell.ljust(widths[i])
                 for i, cell in enumerate(row)
             ]
             self.lines.append(" ".join(cells).rstrip())
@@ -193,7 +201,9 @@ def _fmt(value: Any) -> str:
 # must be able to tell linear from log10 at the point they see numbers.
 # ---------------------------------------------------------------------
 
-_LINEAR_LABEL = "linear ohm.m (canonical, see model/resistivity in SPEC.md S4)"
+_LINEAR_LABEL = (
+    "linear ohm.m (canonical, see model/resistivity in SPEC.md S4)"
+)
 _LOG10_VIEW_LABEL = (
     "log10(ohm.m) -- derived view for human inspection only; "
     "read_pcsm() discards this, it is never part of the model"
@@ -205,17 +215,24 @@ def _native_label(encoding: str | None) -> str:
 
 
 def _write_log10_view(
-    w: _Writer, base_keyword: str, resistivity: np.ndarray, *, per_row: int | None
+    w: _Writer,
+    base_keyword: str,
+    resistivity: np.ndarray,
+    *,
+    per_row: int | None,
 ) -> None:
     with warnings.catch_warnings():
-        # log10 of a non-positive resistivity (masked/placeholder cells)
-        # legitimately produces -inf/nan; this view is write-only and
-        # never parsed back, so that is fine -- suppress the runtime
-        # warning rather than let it leak to the caller's console.
+        # log10 of a non-positive resistivity (masked/placeholder
+        # cells) legitimately produces -inf/nan; this view is
+        # write-only and never parsed back, so that is fine -- suppress
+        # the runtime warning rather than let it leak to the caller's
+        # console.
         warnings.simplefilter("ignore", category=RuntimeWarning)
         log10_values = np.log10(resistivity)
     w.block(
-        f"{base_keyword}_LOG10", log10_values, per_row=per_row,
+        f"{base_keyword}_LOG10",
+        log10_values,
+        per_row=per_row,
         comment=_LOG10_VIEW_LABEL,
     )
 
@@ -282,14 +299,17 @@ class _Cursor:
         header = self.next()
         if header is None or header.split(None, 1)[0] != keyword:
             raise PCSMSyntaxError(
-                f"PCSM parse error: expected block {keyword!r}, got {header!r}"
+                f"PCSM parse error: expected block {keyword!r}, "
+                f"got {header!r}"
             )
         end = f"END_{keyword}"
         tokens: list[str] = []
         while True:
             line = self.next()
             if line is None:
-                raise PCSMSyntaxError(f"PCSM parse error: missing {end!r}")
+                raise PCSMSyntaxError(
+                    f"PCSM parse error: missing {end!r}"
+                )
             if line.strip() == end:
                 return tokens
             tokens.extend(line.split())
@@ -341,11 +361,23 @@ def _read_grid2d(cursor: _Cursor) -> Grid2DGeometry:
     x = _read_floats(cursor, "X_COORDS")
     z = _read_floats(cursor, "Z_COORDS")
     if x.size != n_x:
-        raise PCSMSyntaxError(f"PCSM: X_COORDS has {x.size} values, NX declared {n_x}")
+        raise PCSMSyntaxError(
+            f"PCSM: X_COORDS has {x.size} values, NX declared {n_x}"
+        )
     if z.size != n_z:
-        raise PCSMSyntaxError(f"PCSM: Z_COORDS has {z.size} values, NZ declared {n_z}")
-    x_nodes = _read_floats(cursor, "X_NODES") if cursor.try_peek_keyword() == "X_NODES" else None
-    z_nodes = _read_floats(cursor, "Z_NODES") if cursor.try_peek_keyword() == "Z_NODES" else None
+        raise PCSMSyntaxError(
+            f"PCSM: Z_COORDS has {z.size} values, NZ declared {n_z}"
+        )
+    x_nodes = (
+        _read_floats(cursor, "X_NODES")
+        if cursor.try_peek_keyword() == "X_NODES"
+        else None
+    )
+    z_nodes = (
+        _read_floats(cursor, "Z_NODES")
+        if cursor.try_peek_keyword() == "Z_NODES"
+        else None
+    )
     origin = None
     if cursor.try_peek_keyword() == "ORIGIN":
         origin = np.asarray(
@@ -356,7 +388,11 @@ def _read_grid2d(cursor: _Cursor) -> Grid2DGeometry:
     if raw_az is not None:
         azimuth_deg = float(raw_az)
     return Grid2DGeometry(
-        x=x, z=z, x_nodes=x_nodes, z_nodes=z_nodes, origin=origin,
+        x=x,
+        z=z,
+        x_nodes=x_nodes,
+        z_nodes=z_nodes,
+        origin=origin,
         azimuth_deg=azimuth_deg,
     )
 
@@ -387,12 +423,30 @@ def _read_grid3d(cursor: _Cursor) -> Grid3DGeometry:
     x = _read_floats(cursor, "X_COORDS")
     y = _read_floats(cursor, "Y_COORDS")
     z = _read_floats(cursor, "Z_COORDS")
-    for name, arr, n in (("X_COORDS", x, n_x), ("Y_COORDS", y, n_y), ("Z_COORDS", z, n_z)):
+    for name, arr, n in (
+        ("X_COORDS", x, n_x),
+        ("Y_COORDS", y, n_y),
+        ("Z_COORDS", z, n_z),
+    ):
         if arr.size != n:
-            raise PCSMSyntaxError(f"PCSM: {name} has {arr.size} values, declared {n}")
-    x_nodes = _read_floats(cursor, "X_NODES") if cursor.try_peek_keyword() == "X_NODES" else None
-    y_nodes = _read_floats(cursor, "Y_NODES") if cursor.try_peek_keyword() == "Y_NODES" else None
-    z_nodes = _read_floats(cursor, "Z_NODES") if cursor.try_peek_keyword() == "Z_NODES" else None
+            raise PCSMSyntaxError(
+                f"PCSM: {name} has {arr.size} values, declared {n}"
+            )
+    x_nodes = (
+        _read_floats(cursor, "X_NODES")
+        if cursor.try_peek_keyword() == "X_NODES"
+        else None
+    )
+    y_nodes = (
+        _read_floats(cursor, "Y_NODES")
+        if cursor.try_peek_keyword() == "Y_NODES"
+        else None
+    )
+    z_nodes = (
+        _read_floats(cursor, "Z_NODES")
+        if cursor.try_peek_keyword() == "Z_NODES"
+        else None
+    )
     origin = None
     if cursor.try_peek_keyword() == "ORIGIN":
         origin = np.asarray(
@@ -401,8 +455,15 @@ def _read_grid3d(cursor: _Cursor) -> Grid3DGeometry:
     rotation_deg = float(cursor.expect_keyword("ROTATION_DEG"))
     n_air = int(cursor.expect_keyword("N_AIR"))
     return Grid3DGeometry(
-        x=x, y=y, z=z, x_nodes=x_nodes, y_nodes=y_nodes, z_nodes=z_nodes,
-        origin=origin, rotation_deg=rotation_deg, n_air=n_air,
+        x=x,
+        y=y,
+        z=z,
+        x_nodes=x_nodes,
+        y_nodes=y_nodes,
+        z_nodes=z_nodes,
+        origin=origin,
+        rotation_deg=rotation_deg,
+        n_air=n_air,
     )
 
 
@@ -423,20 +484,34 @@ def _read_mesh(cursor: _Cursor) -> UnstructuredMeshGeometry:
     ndim = len(node_tokens) // n_nodes if n_nodes else 2
     nodes = np.asarray(node_tokens, dtype=float).reshape(n_nodes, ndim)
     conn_tokens = cursor.read_block("CONNECTIVITY")
-    connectivity = np.asarray(conn_tokens, dtype=np.int64).reshape(n_tri, 3)
+    connectivity = np.asarray(conn_tokens, dtype=np.int64).reshape(
+        n_tri, 3
+    )
     region_ids = _read_ints(cursor, "REGION_IDS")
     return UnstructuredMeshGeometry(
-        nodes=nodes, connectivity=connectivity, region_ids=region_ids, plane=plane,
+        nodes=nodes,
+        connectivity=connectivity,
+        region_ids=region_ids,
+        plane=plane,
     )
 
 
-def _write_line_entry(w: _Writer, line: LineEntry, *, log10_view: bool = False) -> None:
+def _write_line_entry(
+    w: _Writer, line: LineEntry, *, log10_view: bool = False
+) -> None:
     w.line("LINE_BEGIN", line.line_id)
     _write_grid2d(w, line.geometry)
     row = _capped_row(line.geometry.x.shape[0])
-    w.block("RESISTIVITY", line.resistivity, per_row=row, comment=_LINEAR_LABEL)
+    w.block(
+        "RESISTIVITY",
+        line.resistivity,
+        per_row=row,
+        comment=_LINEAR_LABEL,
+    )
     if log10_view:
-        _write_log10_view(w, "RESISTIVITY", line.resistivity, per_row=row)
+        _write_log10_view(
+            w, "RESISTIVITY", line.resistivity, per_row=row
+        )
     w.line("OFFSET_Y", _fmt(line.offset_y))
     w.line("OFFSET_KIND", line.offset_kind)
     if line.azimuth_deg is not None:
@@ -447,13 +522,17 @@ def _write_line_entry(w: _Writer, line: LineEntry, *, log10_view: bool = False) 
 def _read_line_entry(cursor: _Cursor, line_id: str) -> LineEntry:
     got_id = cursor.expect_keyword("LINE_BEGIN")
     if got_id != line_id:
-        raise PCSMSyntaxError(f"PCSM: expected LINE_BEGIN {line_id!r}, got {got_id!r}")
+        raise PCSMSyntaxError(
+            f"PCSM: expected LINE_BEGIN {line_id!r}, got {got_id!r}"
+        )
     geometry = _read_grid2d(cursor)
     resistivity = _read_floats(cursor, "RESISTIVITY").reshape(
         geometry.resistivity_shape
     )
     if cursor.try_peek_keyword() == "RESISTIVITY_LOG10":
-        cursor.read_block("RESISTIVITY_LOG10")  # write-only view, discarded
+        cursor.read_block(
+            "RESISTIVITY_LOG10"
+        )  # write-only view, discarded
     offset_y = float(cursor.expect_keyword("OFFSET_Y"))
     offset_kind = cursor.expect_keyword("OFFSET_KIND")
     azimuth_deg = None
@@ -462,14 +541,22 @@ def _read_line_entry(cursor: _Cursor, line_id: str) -> LineEntry:
         azimuth_deg = float(raw_az)
     end_id = cursor.expect_keyword("LINE_END")
     if end_id != line_id:
-        raise PCSMSyntaxError(f"PCSM: expected LINE_END {line_id!r}, got {end_id!r}")
+        raise PCSMSyntaxError(
+            f"PCSM: expected LINE_END {line_id!r}, got {end_id!r}"
+        )
     return LineEntry(
-        line_id=line_id, geometry=geometry, resistivity=resistivity,
-        offset_y=offset_y, offset_kind=offset_kind, azimuth_deg=azimuth_deg,
+        line_id=line_id,
+        geometry=geometry,
+        resistivity=resistivity,
+        offset_y=offset_y,
+        offset_kind=offset_kind,
+        azimuth_deg=azimuth_deg,
     )
 
 
-def _write_multiline(w: _Writer, geo: MultilineGeometry, *, log10_view: bool = False) -> None:
+def _write_multiline(
+    w: _Writer, geo: MultilineGeometry, *, log10_view: bool = False
+) -> None:
     w.line("LINE_ORDER", *[line.line_id for line in geo.lines])
     for line in geo.lines:
         _write_line_entry(w, line, log10_view=log10_view)
@@ -477,7 +564,11 @@ def _write_multiline(w: _Writer, geo: MultilineGeometry, *, log10_view: bool = F
         dv = geo.derived_volume
         w.line("DERIVED_VOLUME_BEGIN")
         _write_grid3d(w, dv.grid)
-        w.block("DV_RESISTIVITY", dv.resistivity, per_row=_capped_row(dv.grid.x.shape[0]))
+        w.block(
+            "DV_RESISTIVITY",
+            dv.resistivity,
+            per_row=_capped_row(dv.grid.x.shape[0]),
+        )
         w.line("DERIVATION_METHOD", dv.derivation_method)
         w.line("SYNTHESIZED", "true" if dv.synthesized else "false")
         w.line("DERIVED_FROM", *dv.derived_from)
@@ -495,14 +586,21 @@ def _read_multiline(cursor: _Cursor) -> MultilineGeometry:
             grid.resistivity_shape
         )
         derivation_method = cursor.expect_keyword("DERIVATION_METHOD")
-        synthesized = cursor.expect_keyword("SYNTHESIZED").lower() == "true"
+        synthesized = (
+            cursor.expect_keyword("SYNTHESIZED").lower() == "true"
+        )
         derived_from = cursor.expect_keyword("DERIVED_FROM").split()
         cursor.expect_keyword("DERIVED_VOLUME_END")
         derived_volume = DerivedVolume(
-            grid=grid, resistivity=resistivity, derivation_method=derivation_method,
-            derived_from=derived_from, synthesized=synthesized,
+            grid=grid,
+            resistivity=resistivity,
+            derivation_method=derivation_method,
+            derived_from=derived_from,
+            synthesized=synthesized,
         )
-    return MultilineGeometry(lines=lines, derived_volume=derived_volume)
+    return MultilineGeometry(
+        lines=lines, derived_volume=derived_volume
+    )
 
 
 _GEOMETRY_WRITERS = {
@@ -538,7 +636,7 @@ def write_pcsm(
     -- e.g. ``RESISTIVITY  # linear ohm.m (canonical, ...)`` -- so a
     reader never has to guess or scroll elsewhere to tell linear from
     log10. The canonical ``RESISTIVITY`` field is **always** linear
-    ohm.m (PCSF's own binding rule, SPEC.md section 2): this cannot be
+    ohm.m (specification, section 2): this cannot be
     changed by an option, since a reader/consumer relies on that
     invariant unconditionally, and reversing a ``10**log10(x)``
     round-trip is not guaranteed bit-exact the way the rest of this
@@ -561,11 +659,10 @@ def write_pcsm(
     ``mesh_unstructured`` mesh) produce large plain-text files -- the
     same trade-off ModEM's own ASCII ``.rho`` format already accepts --
     and gzip substantially reduces that in practice (measured on the
-    real, bundled ``willy_27freq_watex_line02_sample`` 590,400-cell
-    ModEM volume, see ``examples/pcsm_conversion_demo``: 19.7 MB
-    plain, 3.9 MB gzipped -- 5.0x smaller, real inverted resistivity
-    compressing far better than synthetic/random test data would --
-    vs. 4.1 MB for the equivalent ``.pcsf``). A gzipped file is no
+    590,400-cell ModEM volume of the accompanying paper: 19.7 MB
+    plain, 3.9 MB gzipped, against 4.1 MB for the equivalent
+    ``.pcsf``; real inverted resistivity compresses far better
+    than random test data). A gzipped file is no
     longer something to casually open in a text editor, so this stays
     opt-in rather than the default: PCSM's purpose is hand-editability,
     which a compressed file gives up.
@@ -587,24 +684,40 @@ def write_pcsm(
     pathlib.Path
         The path written to.
 
+    Raises
+    ------
+    TypeError
+        If *model* is not a :class:`PCSFModel`.
+    GeometryError, EncodingError
+        If *model* fails :meth:`PCSFModel.validate`.
+
+    See Also
+    --------
+    read_pcsm : Inverse operation.
+    pcsf.core.hdf5.write_pcsf : Binary encoding.
+
     Examples
     --------
-    >>> import numpy as np
+    >>> import os, tempfile
     >>> from pcsf import Grid2DGeometry, PCSFModel
-    >>> from pcsf.core.text import write_pcsm, read_pcsm
-    >>> geometry = Grid2DGeometry(x=np.array([0.0, 100.0]), z=np.array([10.0, 50.0]))
+    >>> from pcsf.core.text import read_pcsm, write_pcsm
     >>> model = PCSFModel(
-    ...     geometry=geometry,
-    ...     resistivity=np.array([[100.0, 120.0], [50.0, 60.0]]),
+    ...     geometry=Grid2DGeometry(x=[0.0, 100.0], z=[10.0, 50.0]),
+    ...     resistivity=[[100.0, 120.0], [50.0, 60.0]],
     ...     source_backend="occam2d",
     ... )
-    >>> path = write_pcsm(model, "example.pcsm")  # doctest: +SKIP
-    >>> round_tripped = read_pcsm(path)  # doctest: +SKIP
-    >>> gz_path = write_pcsm(model, "example.pcsm.gz")  # doctest: +SKIP
-    >>> with_log10 = write_pcsm(model, "example_log10.pcsm", log10_view=True)  # doctest: +SKIP
+    >>> with tempfile.TemporaryDirectory() as tmp:
+    ...     path = os.path.join(tmp, "m.pcsm.gz")
+    ...     _ = write_pcsm(model, path, log10_view=True)
+    ...     back = read_pcsm(path)
+    >>> print(back.resistivity)
+    [[100. 120.]
+     [ 50.  60.]]
     """
     if not isinstance(model, PCSFModel):
-        raise TypeError(f"model must be a PCSFModel, got {type(model)!r}")
+        raise TypeError(
+            f"model must be a PCSFModel, got {type(model)!r}"
+        )
     model.validate()
 
     path = Path(path)
@@ -612,12 +725,16 @@ def write_pcsm(
 
     w = _Writer()
     w.lines.append(
-        "# PCSM -- Portable Common Subsurface Markup (ASCII sibling of a .pcsf file)"
+        "# PCSM -- Portable Common Subsurface Markup "
+        "(ASCII sibling of a .pcsf file)"
     )
     w.line("PCSM_VERSION", PCSF_VERSION)
     w.line("SOURCE_BACKEND", model.source_backend)
     w.raw("CREATED_BY", model.created_by or "")
-    w.raw("CREATED_AT", model.created_at or datetime.now(timezone.utc).isoformat())
+    w.raw(
+        "CREATED_AT",
+        model.created_at or datetime.now(timezone.utc).isoformat(),
+    )
     w.line("RESISTIVITY_UNIT", RESISTIVITY_UNIT)
     if model.crs:
         w.raw("CRS", model.crs)
@@ -634,24 +751,42 @@ def write_pcsm(
 
     if model.geometry.kind != "multiline":
         if model.resistivity_native_encoding is not None:
-            w.line("RESISTIVITY_NATIVE_ENCODING", model.resistivity_native_encoding)
+            w.line(
+                "RESISTIVITY_NATIVE_ENCODING",
+                model.resistivity_native_encoding,
+            )
         row = _capped_row(
-            model.geometry.x.shape[0] if hasattr(model.geometry, "x") else None
+            model.geometry.x.shape[0]
+            if hasattr(model.geometry, "x")
+            else None
         )
-        w.block("RESISTIVITY", model.resistivity, per_row=row, comment=_LINEAR_LABEL)
+        w.block(
+            "RESISTIVITY",
+            model.resistivity,
+            per_row=row,
+            comment=_LINEAR_LABEL,
+        )
         if model.resistivity_native is not None:
             w.block(
-                "RESISTIVITY_NATIVE", model.resistivity_native, per_row=row,
-                comment=_native_label(model.resistivity_native_encoding),
+                "RESISTIVITY_NATIVE",
+                model.resistivity_native,
+                per_row=row,
+                comment=_native_label(
+                    model.resistivity_native_encoding
+                ),
             )
         if log10_view:
-            _write_log10_view(w, "RESISTIVITY", model.resistivity, per_row=row)
+            _write_log10_view(
+                w, "RESISTIVITY", model.resistivity, per_row=row
+            )
         if model.uncertainty is not None:
             w.block("UNCERTAINTY", model.uncertainty, per_row=row)
         if model.sensitivity is not None:
             w.block("SENSITIVITY", model.sensitivity, per_row=row)
         if model.resistivity_by_region is not None:
-            w.block("RESISTIVITY_BY_REGION", model.resistivity_by_region)
+            w.block(
+                "RESISTIVITY_BY_REGION", model.resistivity_by_region
+            )
         if model.resistivity_by_node is not None:
             w.block("RESISTIVITY_BY_NODE", model.resistivity_by_node)
         w.lines.append("")
@@ -660,7 +795,9 @@ def write_pcsm(
         n = len(model.stations.name)
         w.line(
             "STATIONS",
-            comment="name x y z line_id lon lat (lon/lat: nan if unset)",
+            comment=(
+                "name x y z line_id lon lat (lon/lat: nan if unset)"
+            ),
         )
         line_ids = model.stations.line_id or [_LINE_ID_NA] * n
         lons = (
@@ -674,10 +811,23 @@ def write_pcsm(
             else np.full(n, np.nan)
         )
         rows = [
-            [str(name), _fmt(x), _fmt(y), _fmt(z), str(lid), _fmt(lon), _fmt(lat)]
+            [
+                str(name),
+                _fmt(x),
+                _fmt(y),
+                _fmt(z),
+                str(lid),
+                _fmt(lon),
+                _fmt(lat),
+            ]
             for name, x, y, z, lid, lon, lat in zip(
-                model.stations.name, model.stations.x, model.stations.y,
-                model.stations.z, line_ids, lons, lats,
+                model.stations.name,
+                model.stations.x,
+                model.stations.y,
+                model.stations.z,
+                line_ids,
+                lons,
+                lats,
             )
         ]
         w.aligned_rows(
@@ -701,7 +851,8 @@ def write_pcsm(
             rows = [
                 [str(sid), _fmt(elev)]
                 for sid, elev in zip(
-                    model.topography.station_id, model.topography.elevation
+                    model.topography.station_id,
+                    model.topography.elevation,
                 )
             ]
             w.aligned_rows(rows, numeric=[False, True])
@@ -709,16 +860,24 @@ def write_pcsm(
         w.lines.append("")
 
     if model.survey:
-        w.raw("SURVEY_JSON", json.dumps(model.survey, default=_json_default))
+        w.raw(
+            "SURVEY_JSON",
+            json.dumps(model.survey, default=_json_default),
+        )
     if model.metadata:
-        w.raw("METADATA_JSON", json.dumps(model.metadata, default=_json_default))
+        w.raw(
+            "METADATA_JSON",
+            json.dumps(model.metadata, default=_json_default),
+        )
     if model.survey or model.metadata:
         w.lines.append("")
 
     if model.history:
         w.line("HISTORY_BEGIN")
         for key, values in model.history.items():
-            w.lines.append(f"{key} " + " ".join(_fmt(v) for v in values))
+            w.lines.append(
+                f"{key} " + " ".join(_fmt(v) for v in values)
+            )
         w.line("HISTORY_END")
 
     _write_text(path, w.text())
@@ -740,18 +899,32 @@ def read_pcsm(path: str | PathLike) -> PCSFModel:
 
     Raises
     ------
-    ValueError
-        If ``PCSM_VERSION`` is missing, malformed, or names an
-        unrecognised MAJOR version (see the PCSF specification (spec/)
-        section 5), if the file is otherwise malformed, or if the
-        reconstructed model fails :meth:`PCSFModel.validate`.
+    PCSMSyntaxError
+        If the text does not follow the grammar.
+    VersionError
+        If ``PCSM_VERSION`` is malformed or of another major
+        version (specification, section 5).
+    GeometryError, EncodingError
+        If the reconstructed model fails
+        :meth:`PCSFModel.validate`.
+
+    See Also
+    --------
+    write_pcsm : Inverse operation.
+    pcsf.read : Read either encoding.
+
+    Examples
+    --------
+    See :func:`write_pcsm`.
     """
     path = Path(path)
     cursor = _Cursor(_read_text(path))
 
     version = _read_scalar_line(cursor, "PCSM_VERSION")
     if version is None:
-        raise PCSMSyntaxError(f"{path}: missing required 'PCSM_VERSION' header")
+        raise PCSMSyntaxError(
+            f"{path}: missing required 'PCSM_VERSION' header"
+        )
     check_pcsf_version(version, PCSF_VERSION)
 
     source_backend = cursor.expect_keyword("SOURCE_BACKEND")
@@ -782,25 +955,38 @@ def read_pcsm(path: str | PathLike) -> PCSFModel:
             resistivity_native_encoding = cursor.expect_keyword(
                 "RESISTIVITY_NATIVE_ENCODING"
             )
-        resistivity = _read_shaped(cursor, "RESISTIVITY", geometry, kind)
+        resistivity = _read_shaped(
+            cursor, "RESISTIVITY", geometry, kind
+        )
         if cursor.try_peek_keyword() == "RESISTIVITY_NATIVE":
             resistivity_native = _read_shaped(
                 cursor, "RESISTIVITY_NATIVE", geometry, kind
             )
         if cursor.try_peek_keyword() == "RESISTIVITY_LOG10":
-            cursor.read_block("RESISTIVITY_LOG10")  # write-only view, discarded
+            cursor.read_block(
+                "RESISTIVITY_LOG10"
+            )  # write-only view, discarded
         if cursor.try_peek_keyword() == "UNCERTAINTY":
-            uncertainty = _read_shaped(cursor, "UNCERTAINTY", geometry, kind)
+            uncertainty = _read_shaped(
+                cursor, "UNCERTAINTY", geometry, kind
+            )
         if cursor.try_peek_keyword() == "SENSITIVITY":
-            sensitivity = _read_shaped(cursor, "SENSITIVITY", geometry, kind)
+            sensitivity = _read_shaped(
+                cursor, "SENSITIVITY", geometry, kind
+            )
         if cursor.try_peek_keyword() == "RESISTIVITY_BY_REGION":
-            resistivity_by_region = _read_floats(cursor, "RESISTIVITY_BY_REGION")
+            resistivity_by_region = _read_floats(
+                cursor, "RESISTIVITY_BY_REGION"
+            )
         if cursor.try_peek_keyword() == "RESISTIVITY_BY_NODE":
-            resistivity_by_node = _read_floats(cursor, "RESISTIVITY_BY_NODE")
+            resistivity_by_node = _read_floats(
+                cursor, "RESISTIVITY_BY_NODE"
+            )
 
     stations = None
     if cursor.try_peek_keyword() == "STATIONS":
-        cursor.next()  # header line (may carry a trailing comment, discarded)
+        # header line (may carry a trailing comment, discarded)
+        cursor.next()
         names: list[str] = []
         xs: list[float] = []
         ys: list[float] = []
@@ -839,7 +1025,10 @@ def read_pcsm(path: str | PathLike) -> PCSFModel:
         lat_arr = np.asarray(lats)
         has_lonlat = not np.all(np.isnan(lon_arr))
         stations = StationTable(
-            name=names, x=np.asarray(xs), y=np.asarray(ys), z=np.asarray(zs),
+            name=names,
+            x=np.asarray(xs),
+            y=np.asarray(ys),
+            z=np.asarray(zs),
             line_id=line_id,
             lon=lon_arr if has_lonlat else None,
             lat=lat_arr if has_lonlat else None,
@@ -851,9 +1040,9 @@ def read_pcsm(path: str | PathLike) -> PCSFModel:
         if topo_kind == "raster":
             tx = _read_floats(cursor, "TOPOGRAPHY_X")
             ty = _read_floats(cursor, "TOPOGRAPHY_Y")
-            telev = _read_floats(cursor, "TOPOGRAPHY_ELEVATION").reshape(
-                ty.size, tx.size
-            )
+            telev = _read_floats(
+                cursor, "TOPOGRAPHY_ELEVATION"
+            ).reshape(ty.size, tx.size)
             topography = TopographyRaster(x=tx, y=ty, elevation=telev)
         else:
             cursor.next()  # TOPOGRAPHY header line
@@ -862,7 +1051,9 @@ def read_pcsm(path: str | PathLike) -> PCSFModel:
             while True:
                 line = cursor.next()
                 if line is None:
-                    raise PCSMSyntaxError("PCSM: missing END_TOPOGRAPHY")
+                    raise PCSMSyntaxError(
+                        "PCSM: missing END_TOPOGRAPHY"
+                    )
                 if line.strip() == "END_TOPOGRAPHY":
                     break
                 sid, elev = line.split()
@@ -915,7 +1106,9 @@ def read_pcsm(path: str | PathLike) -> PCSFModel:
     return model
 
 
-def _read_shaped(cursor: _Cursor, keyword: str, geometry: Any, kind: str) -> np.ndarray:
+def _read_shaped(
+    cursor: _Cursor, keyword: str, geometry: Any, kind: str
+) -> np.ndarray:
     flat = _read_floats(cursor, keyword)
     if kind == "mesh_unstructured":
         return flat
@@ -929,23 +1122,82 @@ def _json_default(value: Any) -> Any:
         return int(value)
     if isinstance(value, np.floating):
         return float(value)
-    raise TypeError(f"object of type {type(value)!r} is not JSON serializable")
+    raise TypeError(
+        f"object of type {type(value)!r} is not JSON serializable"
+    )
 
 
 def pcsf_to_pcsm(
-    pcsf_path: str | PathLike, pcsm_path: str | PathLike, *, log10_view: bool = False
+    pcsf_path: str | PathLike,
+    pcsm_path: str | PathLike,
+    *,
+    log10_view: bool = False,
 ) -> Path:
-    """Convert a ``.pcsf`` (HDF5) file to a ``.pcsm`` (ASCII) file.
+    """Convert a ``.pcsf`` (HDF5) file to ``.pcsm`` text.
 
-    ``log10_view`` is passed through to :func:`write_pcsm` — see there.
+    Parameters
+    ----------
+    pcsf_path : path-like
+        Source file.
+    pcsm_path : path-like
+        Destination; a ``.gz`` suffix compresses it.
+    log10_view : bool, default False
+        Passed to :func:`write_pcsm`.
+
+    Returns
+    -------
+    pathlib.Path
+        The path written to.
+
+    See Also
+    --------
+    pcsm_to_pcsf : Inverse conversion.
+    pcsf.convert : Conversion with content detection.
+
+    Examples
+    --------
+    >>> import os, tempfile
+    >>> import pcsf
+    >>> from pcsf.core.text import pcsf_to_pcsm, pcsm_to_pcsf
+    >>> model = pcsf.PCSFModel(
+    ...     geometry=pcsf.Grid2DGeometry(x=[0.0], z=[5.0]),
+    ...     resistivity=[[100.0]],
+    ... )
+    >>> with tempfile.TemporaryDirectory() as tmp:
+    ...     a = pcsf.write(model, os.path.join(tmp, "a.pcsf"))
+    ...     b = pcsf_to_pcsm(a, os.path.join(tmp, "b.pcsm"))
+    ...     c = pcsm_to_pcsf(b, os.path.join(tmp, "c.pcsf"))
+    ...     pcsf.read(c).resistivity.tolist()
+    [[100.0]]
     """
     from .hdf5 import read_pcsf
 
-    return write_pcsm(read_pcsf(pcsf_path), pcsm_path, log10_view=log10_view)
+    return write_pcsm(
+        read_pcsf(pcsf_path), pcsm_path, log10_view=log10_view
+    )
 
 
-def pcsm_to_pcsf(pcsm_path: str | PathLike, pcsf_path: str | PathLike) -> Path:
-    """Convert a ``.pcsm`` (ASCII) file to a ``.pcsf`` (HDF5) file."""
+def pcsm_to_pcsf(
+    pcsm_path: str | PathLike, pcsf_path: str | PathLike
+) -> Path:
+    """Convert a ``.pcsm`` text file to ``.pcsf`` (HDF5).
+
+    Parameters
+    ----------
+    pcsm_path : path-like
+        Source file, plain or gzip-compressed.
+    pcsf_path : path-like
+        Destination.
+
+    Returns
+    -------
+    pathlib.Path
+        The path written to.
+
+    See Also
+    --------
+    pcsf_to_pcsm : Inverse conversion, with an example.
+    """
     from .hdf5 import write_pcsf
 
     return write_pcsf(read_pcsm(pcsm_path), pcsf_path)
@@ -954,12 +1206,9 @@ def pcsm_to_pcsf(pcsm_path: str | PathLike, pcsf_path: str | PathLike) -> Path:
 def read_pcsf_or_pcsm(path: str | PathLike) -> PCSFModel:
     """Read a :class:`PCSFModel` from either encoding, by extension.
 
-    A single entry point for a consumer (e.g. ``app/mapview``'s
-    inversion-result importer) that wants to accept whichever of the
-    two lossless PCSF encodings (see ``SPEC.md`` S9) a user hands it,
-    without duplicating the ``.pcsf`` vs. ``.pcsm``/``.pcsm.gz``
-    dispatch itself. Extension is the only signal used -- content is
-    never sniffed -- matching every other reader in this package.
+    The extension is the only signal used; :func:`pcsf.read`
+    detects the encoding from the content instead and is
+    preferred in new code.
 
     Parameters
     ----------
@@ -967,10 +1216,28 @@ def read_pcsf_or_pcsm(path: str | PathLike) -> PCSFModel:
         A ``.pcsf`` (binary HDF5), ``.pcsm`` (ASCII), or ``.pcsm.gz``
         (gzip-compressed ASCII) file.
 
+    Returns
+    -------
+    PCSFModel
+        The model read.
+
     Raises
     ------
-    ValueError
-        If *path*'s extension is none of the three recognised forms.
+    PCSMSyntaxError
+        If the extension is none of the three recognised
+        forms.
+
+    See Also
+    --------
+    pcsf.read : Content-based detection.
+
+    Examples
+    --------
+    >>> from pcsf.core.text import read_pcsf_or_pcsm
+    >>> read_pcsf_or_pcsm("model.txt")
+    Traceback (most recent call last):
+    ...
+    pcsf.exceptions.PCSMSyntaxError: model.txt: unrecognised ...
     """
     name = str(path).lower()
     if name.endswith(".pcsm") or name.endswith(".pcsm.gz"):
@@ -986,27 +1253,52 @@ def read_pcsf_or_pcsm(path: str | PathLike) -> PCSFModel:
 
 
 def peek_kind(path: str | PathLike) -> str:
-    """Return a PCSF/PCSM file's ``geometry.kind`` without loading any
-    array data -- just the root/geometry attributes for ``.pcsf``, or
-    the ``GEOMETRY_KIND`` header line for ``.pcsm``/``.pcsm.gz``.
+    """Geometry kind of a file, without reading its arrays.
 
-    Meant for a caller that wants to label several candidate files
-    (e.g. a file picker UI, deciding which are ``grid2d``/``multiline``
-    and therefore importable by a given consumer) before committing to
-    a full :func:`read_pcsf_or_pcsm` load of any one of them.
+    Only the geometry attribute of a ``.pcsf`` file or the
+    ``GEOMETRY_KIND`` header of a ``.pcsm`` file is read, so
+    that a file picker can label many files cheaply.
+
+    Parameters
+    ----------
+    path : path-like
+        A ``.pcsf``, ``.pcsm`` or ``.pcsm.gz`` file.
+
+    Returns
+    -------
+    str
+        Geometry kind, such as ``"grid2d"``.
 
     Raises
     ------
-    ValueError
-        If *path*'s extension is not recognised, or the kind
-        attribute/header cannot be found (e.g. a truncated file).
+    PCSMSyntaxError
+        If the extension is not recognised or the kind
+        cannot be found (for instance in a truncated file).
+
+    Examples
+    --------
+    >>> import os, tempfile
+    >>> import pcsf
+    >>> from pcsf.core.text import peek_kind
+    >>> model = pcsf.PCSFModel(
+    ...     geometry=pcsf.Grid2DGeometry(x=[0.0], z=[5.0]),
+    ...     resistivity=[[100.0]],
+    ... )
+    >>> with tempfile.TemporaryDirectory() as tmp:
+    ...     path = pcsf.write(model, os.path.join(tmp, "m.pcsm"))
+    ...     peek_kind(path)
+    'grid2d'
     """
     name = str(path).lower()
     if name.endswith(".pcsm") or name.endswith(".pcsm.gz"):
         text = _read_text(Path(path))
-        match = re.search(r"^GEOMETRY_KIND\s+(\S+)", text, re.MULTILINE)
+        match = re.search(
+            r"^GEOMETRY_KIND\s+(\S+)", text, re.MULTILINE
+        )
         if not match:
-            raise PCSMSyntaxError(f"{path}: no GEOMETRY_KIND header found")
+            raise PCSMSyntaxError(
+                f"{path}: no GEOMETRY_KIND header found"
+            )
         return match.group(1)
     if name.endswith(".pcsf"):
         import h5py
@@ -1014,7 +1306,9 @@ def peek_kind(path: str | PathLike) -> str:
         with h5py.File(path, "r") as fh:
             kind = fh["geometry"].attrs.get("kind")
         if kind is None:
-            raise PCSMSyntaxError(f"{path}: geometry group has no 'kind' attribute")
+            raise PCSMSyntaxError(
+                f"{path}: geometry group has no 'kind' attribute"
+            )
         return str(kind)
     raise PCSMSyntaxError(
         f"{path}: unrecognised PCSF/PCSM extension -- expected one of "

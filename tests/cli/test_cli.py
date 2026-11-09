@@ -10,9 +10,12 @@ from pcsf.cli.main import main
 
 def _write(tmp_path):
     native = np.array([[1.0, 2.0], [3.0, 4.0]])
-    m = pcsf.PCSFModel(geometry=pcsf.Grid2DGeometry(x=[0.0, 1.0], z=[1.0, 2.0]),
-                       resistivity=10.0 ** native, resistivity_native=native,
-                       resistivity_native_encoding="log10")
+    m = pcsf.PCSFModel(
+        geometry=pcsf.Grid2DGeometry(x=[0.0, 1.0], z=[1.0, 2.0]),
+        resistivity=10.0**native,
+        resistivity_native=native,
+        resistivity_native_encoding="log10",
+    )
     return pcsf.write(m, tmp_path / "m.pcsf")
 
 

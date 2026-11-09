@@ -8,10 +8,31 @@ __all__ = ["format_float"]
 
 
 def format_float(value: float) -> str:
-    """Shortest decimal string that converts back to the same IEEE 754 double.
+    """Shortest decimal string that reads back as the same double.
 
-    Python's ``repr`` already has this property (Steele and White, 1990);
-    non-finite values are written as ``nan``, ``inf`` and ``-inf``.
+    Parameters
+    ----------
+    value : float
+        Value to format.
+
+    Returns
+    -------
+    str
+        Decimal representation; ``"nan"``, ``"inf"`` or ``"-inf"``
+        for non-finite values.
+
+    Notes
+    -----
+    Python's ``repr`` of a float is the shortest string that converts
+    back to the same IEEE 754 double, which makes PCSM text lossless.
+
+    Examples
+    --------
+    >>> from pcsf.utils.text import format_float
+    >>> format_float(0.1), format_float(1e-300), format_float(-1e999)
+    ('0.1', '1e-300', '-inf')
+    >>> float(format_float(1 / 3)) == 1 / 3
+    True
     """
     v = float(value)
     if math.isnan(v):

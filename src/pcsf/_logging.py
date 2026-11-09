@@ -1,8 +1,9 @@
 """Package logger.
 
-pcsf never configures the root logger. It logs to ``logging.getLogger("pcsf")``
-with a ``NullHandler``, so applications decide where messages go. During
-development, :func:`enable_console_logging` prints them.
+pcsf never configures the root logger. It logs to
+``logging.getLogger("pcsf")``, which carries a ``NullHandler``, so
+that applications decide where messages go. For interactive use,
+:func:`enable_console_logging` prints them.
 """
 
 from __future__ import annotations
@@ -21,8 +22,19 @@ def get_logger(name: str | None = None) -> logging.Logger:
     Parameters
     ----------
     name : str, optional
-        Module name, usually ``__name__``. Names outside the package are
-        attached under ``pcsf``.
+        Module name, usually ``__name__``. Names outside the package
+        are attached under ``pcsf``.
+
+    Returns
+    -------
+    logging.Logger
+        ``pcsf`` itself when *name* is empty, otherwise a child.
+
+    Examples
+    --------
+    >>> from pcsf._logging import get_logger
+    >>> get_logger("pcsf.core").name, get_logger("plugin").name
+    ('pcsf.core', 'pcsf.plugin')
     """
     if not name:
         return logging.getLogger(_ROOT)
@@ -32,11 +44,30 @@ def get_logger(name: str | None = None) -> logging.Logger:
 
 
 def enable_console_logging(level: int | str = logging.INFO) -> None:
-    """Send pcsf log messages to the console (for interactive use)."""
+    """Send pcsf log messages to standard error.
+
+    Parameters
+    ----------
+    level : int or str, default logging.INFO
+        Level set on the ``pcsf`` logger.
+
+    Notes
+    -----
+    A stream handler is added only once, however often the function
+    is called; later calls only change the level. This modifies
+    global logging state and is meant for scripts and notebooks, not
+    for libraries.
+    """
     logger = logging.getLogger(_ROOT)
-    if not any(isinstance(h, logging.StreamHandler) and not isinstance(h, logging.NullHandler)
-               for h in logger.handlers):
+    has_stream = any(
+        isinstance(h, logging.StreamHandler)
+        and not isinstance(h, logging.NullHandler)
+        for h in logger.handlers
+    )
+    if not has_stream:
         handler = logging.StreamHandler()
-        handler.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
+        handler.setFormatter(
+            logging.Formatter("%(levelname)s %(name)s: %(message)s")
+        )
         logger.addHandler(handler)
     logger.setLevel(level)

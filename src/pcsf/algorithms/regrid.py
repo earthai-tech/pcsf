@@ -1,15 +1,14 @@
-"""Rectilinear (``grid2d``) export of a ``mesh_unstructured`` model.
+"""Rectilinear export of a triangular-mesh model.
 
-A mesh model stays a mesh in PCSF. When a consumer needs a rectilinear
-approximation (a quick-look plot, a tool that only reads grids),
-:func:`mesh_to_grid2d` samples the mesh on a regular grid by point
-location (:mod:`pcsf.algorithms.locate`): every grid point takes the
-value of the triangle that contains it, and points outside the mesh are
-NaN, never extrapolated.
+A mesh model stays a mesh in PCSF. When a consumer needs a
+rectilinear approximation (a quick-look plot, a tool that reads only
+grids), :func:`mesh_to_grid2d` samples the mesh on a regular grid by
+point location. The result is labelled as synthesized so that it is
+never mistaken for an inversion output.
 
-The result is labelled as synthesized in ``description`` and
-``metadata``, so that it is never mistaken for an inversion result; the
-source values and per-region table do not apply to it and are dropped.
+See Also
+--------
+pcsf.algorithms.locate : Point location used here.
 """
 
 from __future__ import annotations
@@ -22,6 +21,11 @@ from .locate import TriangleLocator
 
 __all__ = ["mesh_to_grid2d"]
 
+_NOTE = (
+    "regridded from mesh_unstructured by point location "
+    "(synthesized, not a native inversion output)"
+)
+
 
 def mesh_to_grid2d(
     model: PCSFModel,
@@ -29,101 +33,104 @@ def mesh_to_grid2d(
     nx: int = 200,
     nz: int = 150,
 ) -> PCSFModel:
-    """Regrid a ``mesh_unstructured`` PCSF model onto a rectilinear
-    ``grid2d`` approximation.
+    """Sample a triangular-mesh model on a regular ``grid2d``.
 
     Parameters
     ----------
     model : PCSFModel
-        A model with ``geometry.kind == "mesh_unstructured"`` and
-        per-cell resistivity (shape ``(n_triangles,)`` -- every
-        PCSF adapter produces this; a
-        region-collapsed ``(n_regions,)`` array must be expanded onto
-        each triangle's region id first).
-    nx, nz : int, default 200, 150
-        Grid resolution. Chosen independently of the source mesh's own
-        resolution -- there is no natural rectilinear resolution to
-        inherit from an unstructured mesh -- the same kind of
-        pragmatic, documented default the rest of this format already
-        makes (cf. PCSM's row-width cap, the per-station curtain's
-        ``n_z`` default) rather than leaving it unbounded.
+        Model of kind ``mesh_unstructured`` in plane ``"xz"`` with
+        per-triangle resistivity of shape ``(n_triangles,)``. A
+        per-region array must first be expanded onto each triangle's
+        region id.
+    nx, nz : int, default 200 and 150
+        Number of grid points along x and z. A mesh has no natural
+        rectilinear resolution, so these are explicit, bounded
+        defaults.
 
     Returns
     -------
     PCSFModel
-        A new ``grid2d`` model. Grid points outside the source mesh's
-        triangulation are ``nan``. ``source_backend``, ``created_by``,
-        and ``crs`` are carried over from *model*; ``description`` and
-        ``metadata`` record that this is a synthesized regrid, not a
-        native inversion output.
+        New ``grid2d`` model with ``nz`` by ``nx`` cells spanning the
+        mesh bounding box. Points outside the triangulation are NaN.
+        ``source_backend``, ``created_by``, ``crs`` and ``survey`` are
+        carried over; ``description`` and ``metadata`` (keys
+        ``synthesized``, ``regridded_from``, ``regrid_nx``,
+        ``regrid_nz``) record that the model is synthesized.
 
     Raises
     ------
     GeometryError
-        If *model* is not ``mesh_unstructured``, or its resistivity is
-        not already per-cell.
-    GeometryError
-        If the mesh's ``plane`` is not ``"xz"`` -- the only plane any
-        current adapter produces; a general 3-D mesh has no single
-        rectilinear plane to regrid onto.
+        If *model* is not ``mesh_unstructured``, its plane is not
+        ``"xz"``, or its resistivity is not per triangle.
+
+    See Also
+    --------
+    pcsf.algorithms.sample_log10 : Sample at arbitrary points.
+
+    Notes
+    -----
+    Each grid point :math:`\\mathbf{p}_{ij}` takes the resistivity of
+    the triangle :math:`t(\\mathbf{p}_{ij})` that contains it; no
+    value is interpolated or extrapolated, so contrasts across region
+    boundaries stay sharp at the cost of staircase edges of one grid
+    step. The source values and the per-region table do not apply to
+    the grid and are dropped.
 
     Examples
     --------
     >>> import numpy as np
-    >>> from pcsf.core.schema import PCSFModel, UnstructuredMeshGeometry
-    >>> from pcsf.algorithms.regrid import mesh_to_grid2d
-    >>> geometry = UnstructuredMeshGeometry(
-    ...     nodes=np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0], [1.0, 1.0]]),
+    >>> import pcsf
+    >>> from pcsf.algorithms import mesh_to_grid2d
+    >>> geometry = pcsf.UnstructuredMeshGeometry(
+    ...     nodes=np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0],
+    ...                     [1.0, 1.0]]),
     ...     connectivity=np.array([[0, 1, 2], [1, 3, 2]]),
     ...     region_ids=np.array([0, 1]),
     ... )
-    >>> model = PCSFModel(geometry=geometry, resistivity=np.array([10.0, 20.0]))
-    >>> regridded = mesh_to_grid2d(model, nx=5, nz=5)
-    >>> regridded.kind
-    'grid2d'
-    >>> regridded.resistivity.shape
-    (5, 5)
+    >>> model = pcsf.PCSFModel(geometry=geometry,
+    ...                        resistivity=np.array([10.0, 20.0]))
+    >>> grid = mesh_to_grid2d(model, nx=5, nz=5)
+    >>> grid.kind, grid.resistivity.shape
+    ('grid2d', (5, 5))
+    >>> grid.metadata["synthesized"]
+    True
     """
     if model.kind != "mesh_unstructured":
         raise GeometryError(
-            "mesh_to_grid2d expects a mesh_unstructured model, got "
-            f"geometry kind {model.kind!r}"
+            "mesh_to_grid2d expects a mesh_unstructured model, "
+            f"got geometry kind {model.kind!r}"
         )
     geo = model.geometry
     if geo.plane != "xz":
         raise GeometryError(
-            "mesh_to_grid2d only supports plane='xz' meshes (the only "
-            f"kind any current adapter produces), got plane={geo.plane!r}"
+            "mesh_to_grid2d supports plane='xz' meshes only, "
+            f"got plane={geo.plane!r}"
         )
     connectivity = np.asarray(geo.connectivity, dtype=np.int64)
-    if model.resistivity.shape != (connectivity.shape[0],):
+    n_tri = connectivity.shape[0]
+    if model.resistivity.shape != (n_tri,):
         raise GeometryError(
-            "mesh_to_grid2d needs per-cell mesh_unstructured resistivity "
-            f"(shape ({connectivity.shape[0]},)), got shape "
-            f"{model.resistivity.shape} -- expand resistivity_by_region "
-            "onto each triangle's region id first "
+            "mesh_to_grid2d needs per-triangle resistivity of shape "
+            f"({n_tri},), got {model.resistivity.shape}; expand "
+            "per-region values onto each triangle's region id first"
         )
-
     nodes = np.asarray(geo.nodes, dtype=float)
     resistivity = np.asarray(model.resistivity, dtype=float)
-
-    locate = TriangleLocator(nodes, connectivity)
-
-    x = np.linspace(float(nodes[:, 0].min()), float(nodes[:, 0].max()), nx)
-    z = np.linspace(float(nodes[:, 1].min()), float(nodes[:, 1].max()), nz)
+    x = np.linspace(nodes[:, 0].min(), nodes[:, 0].max(), nx)
+    z = np.linspace(nodes[:, 1].min(), nodes[:, 1].max(), nz)
     x_grid, z_grid = np.meshgrid(x, z)  # both (nz, nx)
-    tri_idx = locate(np.column_stack([x_grid.ravel(), z_grid.ravel()]))
+    points = np.column_stack([x_grid.ravel(), z_grid.ravel()])
+    tri_idx = TriangleLocator(nodes, connectivity)(points)
     grid_rho = np.full(tri_idx.shape, np.nan)
     inside = tri_idx >= 0
     grid_rho[inside] = resistivity[tri_idx[inside]]
-    grid_rho = grid_rho.reshape(nz, nx)
-
-    note = "regridded from mesh_unstructured via triangulation point-location (synthesized, not a native inversion output)"
-    description = f"{model.description} -- {note}" if model.description else note
-
+    if model.description:
+        description = f"{model.description} -- {_NOTE}"
+    else:
+        description = _NOTE
     return PCSFModel(
         geometry=Grid2DGeometry(x=x, z=z),
-        resistivity=grid_rho,
+        resistivity=grid_rho.reshape(nz, nx),
         source_backend=model.source_backend,
         created_by=model.created_by,
         crs=model.crs,

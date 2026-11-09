@@ -53,18 +53,46 @@ from .exceptions import (
 )
 
 __all__ = [
-    "FORMAT_VERSION", "__version__",
-    # facade
-    "convert", "detect", "info", "read", "validate", "write",
-    # data model
-    "DerivedVolume", "Grid2DGeometry", "Grid3DGeometry", "InversionRecord", "LineEntry",
-    "ModelProvenance", "MultilineGeometry", "PCSFModel", "StationTable",
-    "TopographyPerStation", "TopographyRaster", "UnstructuredMeshGeometry",
-    # encodings and records
-    "attach_inversion_record", "check_conformance", "check_inversion_record",
-    "get_inversion_record", "pcsf_to_pcsm", "pcsm_to_pcsf", "read_pcsf", "read_pcsm",
-    "write_pcsf", "write_pcsm",
+    "FORMAT_VERSION",
     # errors
-    "ConformanceError", "EncodingError", "FormatError", "GeometryError",
-    "MissingDependencyError", "PCSFError", "PCSMSyntaxError", "VersionError",
+    "ConformanceError",
+    # data model
+    "DerivedVolume",
+    "EncodingError",
+    "FormatError",
+    "GeometryError",
+    "Grid2DGeometry",
+    "Grid3DGeometry",
+    "InversionRecord",
+    "LineEntry",
+    "MissingDependencyError",
+    "ModelProvenance",
+    "MultilineGeometry",
+    "PCSFError",
+    "PCSFModel",
+    "PCSMSyntaxError",
+    "StationTable",
+    "TopographyPerStation",
+    "TopographyRaster",
+    "UnstructuredMeshGeometry",
+    "VersionError",
+    "__version__",
+    # encodings and records
+    "attach_inversion_record",
+    "check_conformance",
+    "check_inversion_record",
+    # facade
+    "convert",
+    "detect",
+    "get_inversion_record",
+    "info",
+    "pcsf_to_pcsm",
+    "pcsm_to_pcsf",
+    "read",
+    "read_pcsf",
+    "read_pcsm",
+    "validate",
+    "write",
+    "write_pcsf",
+    "write_pcsm",
 ]

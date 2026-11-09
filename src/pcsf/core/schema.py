@@ -23,25 +23,29 @@ import numpy as np
 from .._version import FORMAT_VERSION
 from ..api.property import MetadataMixin, PCSFObject
 from ..exceptions import EncodingError, GeometryError
-from .encodings import BUILTIN_ENCODINGS, is_known_encoding, known_encodings
+from .encodings import (
+    BUILTIN_ENCODINGS,
+    is_known_encoding,
+    known_encodings,
+)
 
 __all__ = [
-    "PCSF_VERSION",
-    "RESISTIVITY_UNIT",
-    "GEOMETRY_KINDS",
-    "RESISTIVITY_ENCODINGS",
-    "TOPOGRAPHY_KINDS",
     "DERIVATION_METHODS",
+    "GEOMETRY_KINDS",
+    "PCSF_VERSION",
+    "RESISTIVITY_ENCODINGS",
+    "RESISTIVITY_UNIT",
+    "TOPOGRAPHY_KINDS",
+    "DerivedVolume",
     "Grid2DGeometry",
     "Grid3DGeometry",
-    "UnstructuredMeshGeometry",
     "LineEntry",
-    "DerivedVolume",
     "MultilineGeometry",
+    "PCSFModel",
     "StationTable",
     "TopographyPerStation",
     "TopographyRaster",
-    "PCSFModel",
+    "UnstructuredMeshGeometry",
 ]
 
 PCSF_VERSION = FORMAT_VERSION
@@ -69,7 +73,7 @@ def _opt_arr(value: Any, *, dtype: Any = float) -> np.ndarray | None:
 
 @dataclass(repr=False)
 class Grid2DGeometry(PCSFObject):
-    """Single-profile rectilinear geometry (Occam2D / DUHI-via-Occam2D).
+    """Rectilinear geometry of one 2-D section (Occam2D).
 
     Parameters
     ----------
@@ -85,6 +89,17 @@ class Grid2DGeometry(PCSFObject):
         Real-world offset when *x* is locally referenced.
     azimuth_deg : float, optional
         Profile bearing, for georeferencing back to the survey line.
+
+    See Also
+    --------
+    Grid3DGeometry, UnstructuredMeshGeometry
+
+    Examples
+    --------
+    >>> from pcsf import Grid2DGeometry
+    >>> g = Grid2DGeometry(x=[0.0, 50.0, 100.0], z=[5.0, 15.0])
+    >>> g.resistivity_shape
+    (2, 3)
     """
 
     kind: ClassVar[str] = "grid2d"
@@ -104,21 +119,35 @@ class Grid2DGeometry(PCSFObject):
         self.origin = _opt_arr(self.origin)
 
     def validate(self) -> None:
+        """Check the consistency of the arrays.
+
+        Raises
+        ------
+        GeometryError
+            If *x* or *z* is not 1-D, a node array does not
+            have one more element than its centres, or
+            *origin* does not have shape (2,).
+        """
         if self.x.ndim != 1 or self.z.ndim != 1:
             raise GeometryError("Grid2DGeometry.x and .z must be 1-D")
         if self.x_nodes is not None and self.x_nodes.shape != (
             self.x.shape[0] + 1,
         ):
-            raise GeometryError("x_nodes must have one more element than x")
+            raise GeometryError(
+                "x_nodes must have one more element than x"
+            )
         if self.z_nodes is not None and self.z_nodes.shape != (
             self.z.shape[0] + 1,
         ):
-            raise GeometryError("z_nodes must have one more element than z")
+            raise GeometryError(
+                "z_nodes must have one more element than z"
+            )
         if self.origin is not None and self.origin.shape != (2,):
             raise GeometryError("origin must have shape (2,)")
 
     @property
     def resistivity_shape(self) -> tuple[int, int]:
+        """Shape ``(n_z, n_x)`` of the resistivity array."""
         return (self.z.shape[0], self.x.shape[0])
 
 
@@ -138,6 +167,13 @@ class Grid3DGeometry(PCSFObject):
         Grid rotation about the vertical axis.
     n_air : int, default 0
         Explicit air-layer count (unlike Occam2D's inferred count).
+
+    Examples
+    --------
+    >>> from pcsf.core.schema import Grid3DGeometry
+    >>> g = Grid3DGeometry(x=[0.0, 1.0], y=[0.0], z=[1.0, 2.0, 3.0])
+    >>> g.resistivity_shape
+    (3, 1, 2)
     """
 
     kind: ClassVar[str] = "grid3d"
@@ -162,6 +198,14 @@ class Grid3DGeometry(PCSFObject):
         self.origin = _opt_arr(self.origin)
 
     def validate(self) -> None:
+        """Check the consistency of the arrays.
+
+        Raises
+        ------
+        GeometryError
+            If a centre array is not 1-D or a node array does
+            not have one more element than its centres.
+        """
         if self.x.ndim != 1 or self.y.ndim != 1 or self.z.ndim != 1:
             raise GeometryError("Grid3DGeometry.x, .y, .z must be 1-D")
         if self.origin is not None and self.origin.shape != (3,):
@@ -172,7 +216,8 @@ class Grid3DGeometry(PCSFObject):
     @property
     def resistivity_shape(self) -> tuple[int, int, int]:
         # Deliberately (n_z, n_y, n_x) — matches ModEM's own native
-        # order, to avoid introducing a second axis-order transpose bug.
+        # order, to avoid introducing a second axis-order transpose
+        # bug.
         return (self.z.shape[0], self.y.shape[0], self.x.shape[0])
 
 
@@ -196,6 +241,17 @@ class UnstructuredMeshGeometry(PCSFObject):
         conventionally in ``(y, z)`` but stored generically as
         ``plane="xz"`` with *x* holding the profile's own along-line
         coordinate.
+
+    Examples
+    --------
+    >>> from pcsf.core.schema import UnstructuredMeshGeometry
+    >>> mesh = UnstructuredMeshGeometry(
+    ...     nodes=[[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]],
+    ...     connectivity=[[0, 1, 2]],
+    ...     region_ids=[0],
+    ... )
+    >>> mesh.n_regions
+    1
     """
 
     kind: ClassVar[str] = "mesh_unstructured"
@@ -211,9 +267,23 @@ class UnstructuredMeshGeometry(PCSFObject):
         self.region_ids = _arr(self.region_ids, dtype=np.int32)
 
     def validate(self) -> None:
+        """Check the consistency of the arrays.
+
+        Raises
+        ------
+        GeometryError
+            If an array has the wrong shape, *plane* is
+            unknown, or the connectivity references a node
+            that does not exist.
+        """
         if self.nodes.ndim != 2 or self.nodes.shape[1] not in (2, 3):
-            raise GeometryError("nodes must have shape (n, 2) or (n, 3)")
-        if self.connectivity.ndim != 2 or self.connectivity.shape[1] != 3:
+            raise GeometryError(
+                "nodes must have shape (n, 2) or (n, 3)"
+            )
+        if (
+            self.connectivity.ndim != 2
+            or self.connectivity.shape[1] != 3
+        ):
             raise GeometryError("connectivity must have shape (m, 3)")
         if self.region_ids.shape != (self.connectivity.shape[0],):
             raise GeometryError(
@@ -221,17 +291,26 @@ class UnstructuredMeshGeometry(PCSFObject):
             )
         if self.plane not in ("xz", "xy", "3d"):
             raise GeometryError(
-                f"plane must be one of 'xz'/'xy'/'3d', got {self.plane!r}"
+                "plane must be one of 'xz'/'xy'/'3d', "
+                f"got {self.plane!r}"
             )
         n_nodes = self.nodes.shape[0]
         if self.connectivity.size and (
-            self.connectivity.min() < 0 or self.connectivity.max() >= n_nodes
+            self.connectivity.min() < 0
+            or self.connectivity.max() >= n_nodes
         ):
-            raise GeometryError("connectivity references an out-of-range node")
+            raise GeometryError(
+                "connectivity references an out-of-range node"
+            )
 
     @property
     def n_regions(self) -> int:
-        return int(np.unique(self.region_ids).size) if self.region_ids.size else 0
+        """Number of distinct region ids."""
+        return (
+            int(np.unique(self.region_ids).size)
+            if self.region_ids.size
+            else 0
+        )
 
 
 @dataclass(repr=False)
@@ -253,6 +332,16 @@ class LineEntry(PCSFObject):
         placeholder spacing for display only.
     azimuth_deg : float, optional
         Line bearing.
+
+    Examples
+    --------
+    >>> from pcsf.core.schema import Grid2DGeometry, LineEntry
+    >>> line = LineEntry(
+    ...     "L1", Grid2DGeometry(x=[0.0, 10.0], z=[5.0]),
+    ...     resistivity=[[100.0, 200.0]], offset_y=250.0,
+    ...     offset_kind="real",
+    ... )
+    >>> line.validate()
     """
 
     line_id: str
@@ -266,6 +355,14 @@ class LineEntry(PCSFObject):
         self.resistivity = _arr(self.resistivity)
 
     def validate(self) -> None:
+        """Check the consistency of the arrays.
+
+        Raises
+        ------
+        GeometryError
+            If the resistivity shape does not match the
+            geometry or *offset_kind* is unknown.
+        """
         self.geometry.validate()
         if self.resistivity.shape != self.geometry.resistivity_shape:
             raise GeometryError(
@@ -274,16 +371,41 @@ class LineEntry(PCSFObject):
                 f"{self.geometry.resistivity_shape}"
             )
         if self.offset_kind not in ("real", "synthetic"):
-            raise GeometryError("offset_kind must be 'real' or 'synthetic'")
+            raise GeometryError(
+                "offset_kind must be 'real' or 'synthetic'"
+            )
 
 
 @dataclass(repr=False)
 class DerivedVolume(PCSFObject):
-    """Optional cached 3-D volume synthesized from stacked lines.
+    """Optional 3-D volume synthesized from stacked lines.
 
-    Kept explicitly tagged as synthesized so a reader never mistakes a
-    stack-interpolated volume for a native 3-D inversion (see
-    ``derivation_method``/``synthesized`` in the design plan's §2).
+    The volume is always labelled as synthesized, so that a
+    reader never mistakes an interpolated stack of 2-D
+    sections for a 3-D inversion (rule C7).
+
+    Parameters
+    ----------
+    grid : Grid3DGeometry
+        Grid of the volume.
+    resistivity : ndarray of shape (n_z, n_y, n_x)
+        Resistivity in ohm m.
+    derivation_method : str, default "linear_interp"
+        One of :data:`DERIVATION_METHODS`.
+    derived_from : list of str
+        Identifiers of the lines used.
+    synthesized : bool, default True
+        Must stay True for a conforming file.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from pcsf.core.schema import DerivedVolume, Grid3DGeometry
+    >>> grid = Grid3DGeometry(x=[0.0, 10.0], y=[0.0, 100.0], z=[5.0])
+    >>> vol = DerivedVolume(grid, np.full((1, 2, 2), 100.0),
+    ...                     derived_from=["L0", "L1"])
+    >>> vol.synthesized
+    True
     """
 
     grid: Grid3DGeometry
@@ -296,10 +418,19 @@ class DerivedVolume(PCSFObject):
         self.resistivity = _arr(self.resistivity)
 
     def validate(self) -> None:
+        """Check the consistency of the arrays.
+
+        Raises
+        ------
+        GeometryError
+            If the resistivity shape does not match the grid
+            or *derivation_method* is unknown.
+        """
         self.grid.validate()
         if self.resistivity.shape != self.grid.resistivity_shape:
             raise GeometryError(
-                f"derived_volume resistivity shape {self.resistivity.shape} "
+                "derived_volume resistivity shape "
+                f"{self.resistivity.shape} "
                 f"does not match grid {self.grid.resistivity_shape}"
             )
         if self.derivation_method not in DERIVATION_METHODS:
@@ -311,13 +442,28 @@ class DerivedVolume(PCSFObject):
 
 @dataclass(repr=False)
 class MultilineGeometry(PCSFObject):
-    """A set of profiles plus real line geometry (fence/block views).
+    """A set of 2-D profiles with their real positions.
 
-    Formalizes what viewers otherwise
-    reconstructs at render time from a stack of independent 2-D
-    sections. Each line carries its own resistivity; the optional
-    :attr:`derived_volume` is a documented, reproducible synthesis
-    rather than a render-time-only side effect.
+    Each line carries its own geometry and resistivity, so
+    that fence and block views are built from stored data
+    rather than reconstructed at render time. The optional
+    derived volume is a documented, reproducible synthesis.
+
+    Parameters
+    ----------
+    lines : list of LineEntry
+        Profiles, with unique identifiers.
+    derived_volume : DerivedVolume, optional
+        Volume interpolated from the lines.
+
+    Examples
+    --------
+    >>> from pcsf.core.schema import (Grid2DGeometry, LineEntry,
+    ...                               MultilineGeometry)
+    >>> geo = Grid2DGeometry(x=[0.0, 10.0], z=[5.0])
+    >>> lines = [LineEntry(f"L{i}", geo, [[100.0, 200.0]], 100.0 * i)
+    ...          for i in range(2)]
+    >>> MultilineGeometry(lines).validate()
     """
 
     kind: ClassVar[str] = "multiline"
@@ -326,8 +472,18 @@ class MultilineGeometry(PCSFObject):
     derived_volume: DerivedVolume | None = None
 
     def validate(self) -> None:
+        """Check the consistency of the arrays.
+
+        Raises
+        ------
+        GeometryError
+            If there is no line, line identifiers repeat, or
+            a line or the derived volume is invalid.
+        """
         if not self.lines:
-            raise GeometryError("MultilineGeometry needs at least one line")
+            raise GeometryError(
+                "MultilineGeometry needs at least one line"
+            )
         ids = [line.line_id for line in self.lines]
         if len(set(ids)) != len(ids):
             raise GeometryError(f"duplicate line_id values: {ids}")
@@ -344,20 +500,34 @@ class MultilineGeometry(PCSFObject):
 
 @dataclass(repr=False)
 class StationTable(PCSFObject):
-    """Survey station positions, shared across geometry kinds.
+    """Survey station positions, shared by all geometry kinds.
 
-    ``x``/``y``/``z`` are geometry-local (along-profile chainage for
-    ``grid2d``, the model grid's own frame for ``grid3d``, whatever
-    frame the caller supplied for ``mesh_unstructured``) — never
-    assumed to be real-world geographic coordinates, per SPEC.md's own
-    ``load_pcsf_lines`` convention. ``lon``/``lat``, when present, are
-    the one explicit, unambiguous carrier of real-world position: WGS84
-    decimal degrees, the same convention every other real-coordinate
-    source in this codebase already uses (EDI headers, a ModEM ``.dat``
-    file's ``GG_Lat``/``GG_Lon`` columns, a station record).
-    A single-line ``grid2d`` (or any other kind's) PCSF file that sets
-    these needs no separate ``known_stations`` match to place its
-    stations on a real basemap.
+    Parameters
+    ----------
+    name : list of str
+        Station names.
+    x, y, z : ndarray of shape (n,)
+        Positions in the model frame, in metres: chainage
+        along the profile for ``grid2d``, the grid frame for
+        ``grid3d``, the mesh frame for ``mesh_unstructured``.
+        They are never geographic coordinates.
+    line_id : list of str, optional
+        Line of each station, for ``multiline`` models.
+    lon, lat : ndarray of shape (n,), optional
+        WGS84 longitude and latitude in decimal degrees;
+        the only carrier of real-world position. Both or
+        neither must be given.
+
+    Examples
+    --------
+    >>> from pcsf.core.schema import StationTable
+    >>> st = StationTable(name=["S1", "S2"], x=[0.0, 50.0],
+    ...                   y=[0.0, 0.0], z=[0.0, 0.0],
+    ...                   lon=[-5.0, -5.0])
+    >>> st.validate()
+    Traceback (most recent call last):
+    ...
+    pcsf.exceptions.GeometryError: StationTable.lon and .lat must ...
     """
 
     name: list[str] = field(default_factory=list)
@@ -376,15 +546,29 @@ class StationTable(PCSFObject):
         self.lat = _opt_arr(self.lat)
 
     def validate(self) -> None:
+        """Check the consistency of the arrays.
+
+        Raises
+        ------
+        GeometryError
+            If an array length differs from the number of
+            names, or only one of *lon* and *lat* is set.
+        """
         n = len(self.name)
-        for label, arr in (("x", self.x), ("y", self.y), ("z", self.z)):
+        for label, arr in (
+            ("x", self.x),
+            ("y", self.y),
+            ("z", self.z),
+        ):
             if arr.shape != (n,):
                 raise GeometryError(
                     f"StationTable.{label} must have shape ({n},) to "
                     f"match {n} station names, got {arr.shape}"
                 )
         if self.line_id is not None and len(self.line_id) != n:
-            raise GeometryError("StationTable.line_id must match name length")
+            raise GeometryError(
+                "StationTable.line_id must match name length"
+            )
         for label, arr in (("lon", self.lon), ("lat", self.lat)):
             if arr is not None and arr.shape != (n,):
                 raise GeometryError(
@@ -400,8 +584,20 @@ class StationTable(PCSFObject):
 
 @dataclass(repr=False)
 class TopographyPerStation(PCSFObject):
-    """Scalar-per-station topography (matches the existing convention
-    in topography tools).
+    """Elevation of each station.
+
+    Parameters
+    ----------
+    station_id : list of str
+        Station names, matching :class:`StationTable`.
+    elevation : ndarray of shape (n,)
+        Elevation in metres above the vertical datum.
+
+    Examples
+    --------
+    >>> from pcsf.core.schema import TopographyPerStation
+    >>> topo = TopographyPerStation(["S1", "S2"], [312.5, 298.0])
+    >>> topo.validate()
     """
 
     kind: ClassVar[str] = "per_station"
@@ -413,25 +609,30 @@ class TopographyPerStation(PCSFObject):
         self.elevation = _arr(self.elevation)
 
     def validate(self) -> None:
+        """Check the consistency of the arrays.
+
+        Raises
+        ------
+        GeometryError
+            If *elevation* and *station_id* differ in length.
+        """
         if self.elevation.shape != (len(self.station_id),):
             raise GeometryError(
-                "TopographyPerStation.elevation must match station_id length"
+                "TopographyPerStation.elevation must match "
+                "station_id length"
             )
 
 
 @dataclass(repr=False)
 class TopographyRaster(PCSFObject):
-    """Gridded-DEM topography — a regular elevation surface independent
-    of any station table.
+    """Gridded elevation surface, independent of stations.
 
     Unlike :class:`TopographyPerStation`, this carries no station
     identifiers at all: it is a standalone terrain surface a consumer
     can sample at any coordinate, not a per-station lookup table. It
-    introduces no GDAL/rasterio-class dependency — construction is via
-    plain ``x``/``y``/``elevation`` arrays a caller has already
-    obtained by whatever means it likes (see
-    :func:`pcsf.core.topography.topography_from_grid`); PCSF
-    itself never parses a georeferenced raster file format.
+    adds no raster-library dependency: it is built from
+    ``x``, ``y`` and ``elevation`` arrays obtained by the
+    caller, and pcsf never parses georeferenced raster files.
 
     Parameters
     ----------
@@ -443,6 +644,14 @@ class TopographyRaster(PCSFObject):
         Elevation surface, metres, sampled on the ``(y, x)`` meshgrid
         implied by *x*/*y* — the same row-major convention
         ``numpy.meshgrid(x, y)`` (default ``indexing="xy"``) produces.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from pcsf.core.schema import TopographyRaster
+    >>> topo = TopographyRaster(x=[0.0, 10.0, 20.0], y=[0.0, 10.0],
+    ...                         elevation=np.zeros((2, 3)))
+    >>> topo.validate()
     """
 
     kind: ClassVar[str] = "raster"
@@ -457,12 +666,23 @@ class TopographyRaster(PCSFObject):
         self.elevation = _arr(self.elevation)
 
     def validate(self) -> None:
+        """Check the consistency of the arrays.
+
+        Raises
+        ------
+        GeometryError
+            If *x* or *y* is not 1-D or *elevation* does not
+            have shape ``(len(y), len(x))``.
+        """
         if self.x.ndim != 1 or self.y.ndim != 1:
-            raise GeometryError("TopographyRaster.x and .y must be 1-D")
+            raise GeometryError(
+                "TopographyRaster.x and .y must be 1-D"
+            )
         expected = (self.y.shape[0], self.x.shape[0])
         if self.elevation.shape != expected:
             raise GeometryError(
-                f"TopographyRaster.elevation shape {self.elevation.shape} "
+                "TopographyRaster.elevation shape "
+                f"{self.elevation.shape} "
                 f"does not match (len(y), len(x)) = {expected}"
             )
 
@@ -474,11 +694,12 @@ class TopographyRaster(PCSFObject):
 
 @dataclass(repr=False)
 class PCSFModel(PCSFObject, MetadataMixin):
-    """Backend-neutral inversion-result container (one PCSF file).
+    """Solver-neutral resistivity model; one PCSF file.
 
     Parameters
     ----------
-    geometry : Grid2DGeometry | Grid3DGeometry | UnstructuredMeshGeometry | MultilineGeometry
+    geometry : Grid2DGeometry, Grid3DGeometry,
+            UnstructuredMeshGeometry or MultilineGeometry
         The model's geometry, discriminated by ``geometry.kind``.
     resistivity : ndarray, optional
         Canonical **linear ohm.m** resistivity. Required for
@@ -487,9 +708,10 @@ class PCSFModel(PCSFObject, MetadataMixin):
         resistivity — see :class:`LineEntry`).
     resistivity_native : ndarray, optional
         Passthrough of the source backend's own array, for provenance.
-    resistivity_native_encoding : {"log10", "ln", "linear"}, optional
-        Encoding of *resistivity_native*. Required whenever
-        *resistivity_native* is given — never assumed.
+    resistivity_native_encoding : str, optional
+        Encoding of *resistivity_native*, a name from
+        :func:`pcsf.core.encodings.known_encodings`. Required
+        whenever *resistivity_native* is given; never assumed.
     uncertainty, sensitivity : ndarray, optional
         Same shape as *resistivity*, when available from the source.
     resistivity_by_region : ndarray, optional
@@ -499,11 +721,9 @@ class PCSFModel(PCSFObject, MetadataMixin):
         Per-node resistivity table (``mesh_unstructured`` only), shape
         ``(n_nodes,)`` -- the natural output shape of a graph-based
         model (e.g. a GCN) that predicts one value per mesh vertex
-        rather than per cell. Kept alongside the per-cell *resistivity*
-        expanded from it (see
-        :func:`pcsf.adapters.generic.mesh_to_pcsf`), the same
-        provenance relationship *resistivity_by_region* has to its own
-        per-cell expansion.
+        rather than per cell. Kept alongside the per-cell
+        *resistivity* derived from it (see
+        :func:`pcsf.algorithms.node_to_cell`).
     stations : StationTable, optional
     topography : TopographyPerStation | TopographyRaster, optional
     survey : dict
@@ -512,12 +732,49 @@ class PCSFModel(PCSFObject, MetadataMixin):
         ``ProvenanceMeta``) via their own dict conversion; PCSF itself
         does not require a specific metadata class here.
     history : dict of ndarray
-        Optional per-iteration series (e.g. ``{"rms": ..., "lambda": ...}``)
-        from an ``InversionHistory``-like source.
+        Optional per-iteration series (e.g. ``{"rms": ..., "lambda":
+        ...}``) from an ``InversionHistory``-like source.
     source_backend : str, default "generic"
-        ``"occam2d"`` | ``"modem3d"`` | ``"mare2dem"`` | ``"duhi"`` | ``"generic"``.
+        ``"occam2d"`` | ``"modem3d"`` | ``"mare2dem"`` | ``"duhi"`` |
+        ``"generic"``.
+    created_by, created_at : str
+        Producing software and ISO 8601 creation time.
     crs : str, optional
         A pyproj-compatible CRS string.
+    description : str
+        Free text.
+    metadata : dict
+        Free-form metadata, including the inversion record
+        (``metadata["inversion"]``).
+    boreholes : dict or object, optional
+        Borehole association, interpreted by the borehole
+        companion format and stored as JSON.
+
+    See Also
+    --------
+    pcsf.read, pcsf.write, pcsf.validate
+
+    Notes
+    -----
+    Arrays are converted to ``float64`` on construction but
+    not checked; call :meth:`validate` (the writers do) to
+    check shapes and encodings.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pcsf
+    >>> native = np.log10([[100.0, 300.0]])
+    >>> model = pcsf.PCSFModel(
+    ...     geometry=pcsf.Grid2DGeometry(x=[0.0, 10.0], z=[5.0]),
+    ...     resistivity=10.0**native,
+    ...     resistivity_native=native,
+    ...     resistivity_native_encoding="log10",
+    ...     source_backend="occam2d",
+    ... )
+    >>> model.validate()
+    >>> model.kind
+    'grid2d'
     """
 
     geometry: (
@@ -550,17 +807,35 @@ class PCSFModel(PCSFObject, MetadataMixin):
         self.resistivity_native = _opt_arr(self.resistivity_native)
         self.uncertainty = _opt_arr(self.uncertainty)
         self.sensitivity = _opt_arr(self.sensitivity)
-        self.resistivity_by_region = _opt_arr(self.resistivity_by_region)
+        self.resistivity_by_region = _opt_arr(
+            self.resistivity_by_region
+        )
         self.resistivity_by_node = _opt_arr(self.resistivity_by_node)
         self.history = {
-            str(key): _arr(value) for key, value in dict(self.history).items()
+            str(key): _arr(value)
+            for key, value in dict(self.history).items()
         }
 
     @property
     def kind(self) -> str:
+        """Geometry kind, such as ``"grid2d"``."""
         return self.geometry.kind
 
     def validate(self) -> None:
+        """Check the consistency of the arrays.
+
+        Raises
+        ------
+        GeometryError
+            If the geometry is invalid or an array shape does
+            not match it.
+        EncodingError
+            If source values are given without a known
+            encoding.
+        TypeError
+            If *boreholes* is neither a dict nor an object
+            with ``to_dict()``.
+        """
         kind = self.geometry.kind
         if kind not in GEOMETRY_KINDS:
             raise GeometryError(
@@ -579,31 +854,39 @@ class PCSFModel(PCSFObject, MetadataMixin):
         else:
             if self.resistivity is None:
                 raise GeometryError(
-                    f"resistivity is required for geometry kind {kind!r}"
+                    "resistivity is required for geometry "
+                    f"kind {kind!r}"
                 )
             if kind == "mesh_unstructured":
-                # Per-cell (m,) or the region-collapsed (n_regions,) form.
+                # Per-cell (m,) or the region-collapsed (n_regions,)
+                # form.
                 valid_shapes = {
                     (self.geometry.connectivity.shape[0],),
                     (self.geometry.n_regions,),
                 }
                 if self.resistivity.shape not in valid_shapes:
                     raise GeometryError(
-                        f"resistivity shape {self.resistivity.shape} does "
-                        f"not match mesh cells or region count {valid_shapes}"
+                        "resistivity shape "
+                        f"{self.resistivity.shape} does "
+                        "not match mesh cells or region "
+                        f"count {valid_shapes}"
                     )
             else:
                 expected = self.geometry.resistivity_shape
                 if self.resistivity.shape != expected:
                     raise GeometryError(
-                        f"resistivity shape {self.resistivity.shape} does "
+                        "resistivity shape "
+                        f"{self.resistivity.shape} does "
                         f"not match geometry {expected}"
                     )
             for label, arr in (
                 ("uncertainty", self.uncertainty),
                 ("sensitivity", self.sensitivity),
             ):
-                if arr is not None and arr.shape != self.resistivity.shape:
+                if (
+                    arr is not None
+                    and arr.shape != self.resistivity.shape
+                ):
                     raise GeometryError(
                         f"{label} shape {arr.shape} does not match "
                         f"resistivity shape {self.resistivity.shape}"
@@ -612,8 +895,9 @@ class PCSFModel(PCSFObject, MetadataMixin):
         if self.resistivity_by_node is not None:
             if kind != "mesh_unstructured":
                 raise GeometryError(
-                    "resistivity_by_node is only valid for geometry kind "
-                    f"'mesh_unstructured', got {kind!r}"
+                    "resistivity_by_node is only valid for "
+                    "geometry kind 'mesh_unstructured', "
+                    f"got {kind!r}"
                 )
             n_nodes = self.geometry.nodes.shape[0]
             if self.resistivity_by_node.shape != (n_nodes,):
@@ -623,8 +907,9 @@ class PCSFModel(PCSFObject, MetadataMixin):
                     f"the mesh's node count ({n_nodes},)"
                 )
 
-        if self.resistivity_native is not None and not is_known_encoding(
-            self.resistivity_native_encoding
+        if (
+            self.resistivity_native is not None
+            and not is_known_encoding(self.resistivity_native_encoding)
         ):
             raise EncodingError(
                 "resistivity_native_encoding must be one of "
@@ -639,11 +924,14 @@ class PCSFModel(PCSFObject, MetadataMixin):
         if self.boreholes is not None:
             # The borehole association is interpreted by the borehole
             # companion format (a plugin); the core accepts a JSON-like
-            # dict or any object with to_dict(), and validates it if it can.
+            # dict or any object with to_dict(), and validates it if it
+            # can.
             if not isinstance(self.boreholes, dict) and not callable(
                 getattr(self.boreholes, "to_dict", None)
             ):
-                raise TypeError("boreholes must be a dict or provide to_dict()")
+                raise TypeError(
+                    "boreholes must be a dict or provide to_dict()"
+                )
             validate = getattr(self.boreholes, "validate", None)
             if callable(validate):
                 validate()

@@ -1,11 +1,19 @@
 """Small helpers shared by several modules, one theme per module.
 
-Rule: a helper used by a single module stays in that module; it moves
-here when a second module needs it.
+A helper used by a single module stays in that module; it moves here
+when a second module needs it.
 
-- :mod:`pcsf.utils.arrays`  -- shape checks, NaN handling, dtype casting
-- :mod:`pcsf.utils.io`      -- paths, gzip detection, atomic writes
-- :mod:`pcsf.utils.hashing` -- SHA-256 of files and arrays
-- :mod:`pcsf.utils.text`    -- shortest round-trip float formatting
-- :mod:`pcsf.utils.geo`     -- coordinate transformations (needs ``pcsf[geo]``)
+Modules
+-------
+arrays
+    Dimension and shape checks, float conversion.
+io
+    Suffixes, gzip detection, text opening, atomic writes.
+hashing
+    SHA-256 of files and arrays.
+text
+    Shortest round-trip float formatting.
+geo
+    Affine fits and coordinate transformations (the latter needs
+    ``pcsf[geo]``).
 """

@@ -21,10 +21,10 @@ from dataclasses import asdict, dataclass, field
 from typing import Any
 
 __all__ = [
-    "InversionRecord",
-    "REQUIRED_FIELDS",
     "RECOMMENDED_FIELDS",
+    "REQUIRED_FIELDS",
     "TERMINATIONS",
+    "InversionRecord",
     "attach_inversion_record",
     "check_inversion_record",
     "get_inversion_record",
@@ -32,10 +32,10 @@ __all__ = [
 
 #: Allowed values of ``misfit["termination"]``.
 TERMINATIONS = (
-    "target_reached",   # target misfit reached
+    "target_reached",  # target misfit reached
     "iteration_limit",  # maximum number of iterations reached
-    "time_limit",       # stopped by wall-clock limit
-    "stalled",          # no further decrease (local minimum, step failure)
+    "time_limit",  # stopped by wall-clock limit
+    "stalled",  # no further decrease (local minimum, step failure)
     "unknown",
 )
 
@@ -76,7 +76,8 @@ class InversionRecord:
     Parameters
     ----------
     solver : str
-        Inversion code, e.g. ``"Occam2D"``, ``"ModEM"``, ``"MARE2DEM"``.
+        Inversion code, e.g. ``"Occam2D"``, ``"ModEM"``,
+        ``"MARE2DEM"``.
     solver_version : str, optional
     data : dict
         ``components`` (e.g. ``["TE rho", "TE phase"]`` or
@@ -86,18 +87,40 @@ class InversionRecord:
         (e.g. ``"exp(+i omega t)"``), ``source`` (data file, DOI or
         EMTF XML identifiers).
     forward : dict
-        ``dimensionality`` (``"2D"``, ``"2.5D"``, ``"3D"``) and ``mesh``
-        (free text or cell counts).
+        ``dimensionality`` (``"2D"``, ``"2.5D"``, ``"3D"``) and
+        ``mesh`` (free text or cell counts).
     regularization : dict
         ``type`` (e.g. ``"smoothness (Occam)"``), ``trade_off`` (final
         Lagrange multiplier or damping), ``start_model``.
     misfit : dict
-        ``final_rms``, ``target_rms``, ``n_iterations``, ``termination``
-        (one of :data:`TERMINATIONS`).
+        ``final_rms``, ``target_rms``, ``n_iterations``,
+        ``termination`` (one of :data:`TERMINATIONS`).
     reliability : dict
-        ``method`` and ``depth_of_investigation_m`` (``{station: depth}``).
+        ``method`` and ``depth_of_investigation_m`` (``{station:
+        depth}``).
     citation : dict
         ``authors``, ``title``, ``year``, ``doi``, ``licence``.
+
+    Raises
+    ------
+    ValueError
+        If ``misfit["termination"]`` is not one of
+        :data:`TERMINATIONS`.
+
+    See Also
+    --------
+    check_inversion_record : List missing fields.
+    attach_inversion_record : Store a record in a model.
+
+    Examples
+    --------
+    >>> from pcsf.core.record import InversionRecord
+    >>> rec = InversionRecord(
+    ...     "Occam2D",
+    ...     misfit={"final_rms": 1.0, "termination": "stalled"},
+    ... )
+    >>> InversionRecord.from_dict(rec.as_dict()) == rec
+    True
     """
 
     solver: str
@@ -113,18 +136,47 @@ class InversionRecord:
         term = self.misfit.get("termination")
         if term is not None and term not in TERMINATIONS:
             raise ValueError(
-                f"misfit['termination'] must be one of {TERMINATIONS}, got {term!r}")
+                f"misfit['termination'] must be one of "
+                f"{TERMINATIONS}, got {term!r}"
+            )
 
     def as_dict(self) -> dict[str, Any]:
+        """Plain nested dictionary of the record.
+
+        Returns
+        -------
+        dict
+            Deep copy of every field, suitable for JSON.
+        """
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, payload: dict[str, Any]) -> "InversionRecord":
+    def from_dict(cls, payload: dict[str, Any]) -> InversionRecord:
+        """Build a record from a dictionary.
+
+        Parameters
+        ----------
+        payload : dict
+            As produced by :meth:`as_dict`. Unknown keys are ignored,
+            so that records written by a newer version can be read.
+
+        Returns
+        -------
+        InversionRecord
+
+        Raises
+        ------
+        TypeError
+            If ``solver`` is missing.
+        ValueError
+            If ``misfit["termination"]`` is not allowed.
+        """
         keys = cls.__dataclass_fields__.keys()
         return cls(**{k: v for k, v in payload.items() if k in keys})
 
 
 def _lookup(record: dict[str, Any], dotted: str) -> Any:
+    """Value at a dotted path such as ``"misfit.final_rms"``."""
     node: Any = record
     for part in dotted.split("."):
         if not isinstance(node, dict) or part not in node:
@@ -133,26 +185,117 @@ def _lookup(record: dict[str, Any], dotted: str) -> Any:
     return node
 
 
-def check_inversion_record(record: InversionRecord | dict[str, Any]) -> dict[str, list[str]]:
-    """Return the missing ``required`` and ``recommended`` fields."""
-    payload = record.as_dict() if isinstance(record, InversionRecord) else dict(record)
+def check_inversion_record(
+    record: InversionRecord | dict[str, Any],
+) -> dict[str, list[str]]:
+    """List the missing required and recommended fields of a record.
 
-    def missing(fields):
-        return [f for f in fields if _lookup(payload, f) in (None, "", [], {})]
+    Parameters
+    ----------
+    record : InversionRecord or dict
+        Record, or its dictionary form.
 
-    return {"required": missing(REQUIRED_FIELDS),
-            "recommended": missing(RECOMMENDED_FIELDS)}
+    Returns
+    -------
+    dict
+        ``{"required": [...], "recommended": [...]}`` with the dotted
+        names of the missing fields, in the order of
+        :data:`REQUIRED_FIELDS` and :data:`RECOMMENDED_FIELDS`. A
+        field set to ``None``, ``""``, ``[]`` or ``{}`` is missing.
+
+    Examples
+    --------
+    >>> from pcsf.core.record import (InversionRecord,
+    ...                               check_inversion_record)
+    >>> rec = InversionRecord("ModEM", misfit={"final_rms": 1.1})
+    >>> check_inversion_record(rec)["required"][:2]
+    ['data.components', 'data.frequency_range_hz']
+    """
+    if isinstance(record, InversionRecord):
+        payload = record.as_dict()
+    else:
+        payload = dict(record)
+
+    def missing(names: tuple[str, ...]) -> list[str]:
+        empty = (None, "", [], {})
+        return [f for f in names if _lookup(payload, f) in empty]
+
+    return {
+        "required": missing(REQUIRED_FIELDS),
+        "recommended": missing(RECOMMENDED_FIELDS),
+    }
 
 
-def attach_inversion_record(model, record: InversionRecord):
-    """Store *record* in ``model.metadata["inversion"]`` and return *model*."""
+def attach_inversion_record(
+    model: Any, record: InversionRecord
+) -> Any:
+    """Store a record in ``model.metadata["inversion"]``.
+
+    Parameters
+    ----------
+    model : PCSFModel
+        Model to annotate; its ``metadata`` is replaced by a new
+        dictionary (the old one is not mutated).
+    record : InversionRecord
+        Record to store, as its dictionary form.
+
+    Returns
+    -------
+    PCSFModel
+        *model*, for chaining.
+
+    See Also
+    --------
+    get_inversion_record : Read the record back.
+
+    Examples
+    --------
+    >>> import pcsf
+    >>> from pcsf.core.record import (InversionRecord,
+    ...     attach_inversion_record, get_inversion_record)
+    >>> model = pcsf.PCSFModel(
+    ...     geometry=pcsf.Grid2DGeometry(x=[0.0], z=[5.0]),
+    ...     resistivity=[[100.0]],
+    ... )
+    >>> _ = attach_inversion_record(model, InversionRecord("Occam2D"))
+    >>> get_inversion_record(model).solver
+    'Occam2D'
+    """
     meta = dict(model.metadata or {})
     meta["inversion"] = record.as_dict()
     model.metadata = meta
     return model
 
 
-def get_inversion_record(model) -> InversionRecord | None:
-    """Read the record back from a model, or ``None`` if absent."""
+def get_inversion_record(model: Any) -> InversionRecord | None:
+    """Read the inversion record of a model.
+
+    Parameters
+    ----------
+    model : PCSFModel
+        Model whose ``metadata["inversion"]`` is read.
+
+    Returns
+    -------
+    InversionRecord or None
+        The record, or ``None`` when the model has none.
+
+    See Also
+    --------
+    attach_inversion_record : Store a record.
+
+    Examples
+    --------
+    >>> import pcsf
+    >>> from pcsf.core.record import get_inversion_record
+    >>> model = pcsf.PCSFModel(
+    ...     geometry=pcsf.Grid2DGeometry(x=[0.0], z=[5.0]),
+    ...     resistivity=[[100.0]],
+    ... )
+    >>> get_inversion_record(model) is None
+    True
+    """
     payload = (model.metadata or {}).get("inversion")
-    return None if payload is None else InversionRecord.from_dict(payload)
+    if payload is None:
+        return None
+    return InversionRecord.from_dict(payload)
