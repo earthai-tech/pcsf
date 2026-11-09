@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use pcsf, please cite it as below."
+title: "pcsf: Portable Common Subsurface Format"
+abstract: >-
+  Exchange format, tools and algorithms for electromagnetic and
+  magnetotelluric inversion models.
+type: software
+authors:
+  - family-names: Kouadio
+    given-names: Kouao Laurent
+    email: etanoyau@gmail.com
+    affiliation: "Institut National Polytechnique Félix Houphouët-Boigny"
+license: BSD-3-Clause
+repository-code: "https://github.com/earthai-tech/pcsf"
+version: 0.1.0.dev0
+keywords:
+  - magnetotellurics
+  - electromagnetic inversion
+  - file format
+  - interoperability

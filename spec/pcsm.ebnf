@@ -1,0 +1,18 @@
+(* PCSM text encoding of a PCSF model, version 0.1.0 *)
+file       = { statement } ;
+statement  = blank | comment | scalar | freetext | block | scope ;
+comment    = "#" , { character } ;
+scalar     = KEYWORD , value , { value } , [ comment ] ;
+freetext   = FREEKEY , { character } ;
+block      = KEYWORD , [ comment ] , newline ,
+             { { token } , [ comment ] , newline } ,
+             "END_" , KEYWORD ;
+scope      = NAME , "_BEGIN" , [ id ] , newline ,
+             { statement } ,
+             NAME , "_END" , [ id ] ;
+FREEKEY    = "DESCRIPTION" | "CREATED_BY" | "CREATED_AT" | "CRS"
+           | "SURVEY_JSON" | "METADATA_JSON" ;
+(* KEYWORD: upper-case identifier. A block ends at END_KEYWORD, not at a
+   declared count; readers check the number of values against the declared
+   dimensions (NX, NZ, N_NODES, ...). Numbers are the shortest decimal
+   strings that round-trip to the same IEEE 754 double. *)
