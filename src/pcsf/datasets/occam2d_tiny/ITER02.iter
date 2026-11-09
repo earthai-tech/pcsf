@@ -1,0 +1,11 @@
+Format: OCCAMITER_FLEX
+Description: tiny
+Model File: Occam2DModel
+Data File: OccamDataFile.dat
+Iteration: 2
+Lagrange Value: 1.0
+Roughness Value: 20.0
+Misfit Value: 1.5
+Misfit Reached: 0
+Param Count: 7
+2.100000 2.300000 1.400000 2.500000 1.900000 2.700000 3.100000

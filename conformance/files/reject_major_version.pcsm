@@ -1,0 +1,30 @@
+# PCSM -- Portable Common Subsurface Markup (ASCII sibling of a .pcsf file)
+PCSM_VERSION 9.0.0
+SOURCE_BACKEND generic
+CREATED_BY pcsf conformance suite
+CREATED_AT 2026-01-01T00:00:00+00:00
+RESISTIVITY_UNIT ohm.m
+
+GEOMETRY_KIND grid2d
+NX 2
+NZ 1
+X_COORDS
+ 0.0 10.0
+END_X_COORDS
+Z_COORDS
+5.0
+END_Z_COORDS
+
+RESISTIVITY_NATIVE_ENCODING log10
+RESISTIVITY  # linear ohm.m (canonical; spec/pcsf-0.1.md, section 2)
+ 10.0 100.0
+END_RESISTIVITY
+RESISTIVITY_NATIVE  # source-native encoding: log10
+1.0 2.0
+END_RESISTIVITY_NATIVE
+
+STATIONS  # name x y z line_id lon lat (lon/lat: nan if unset)
+A  0.0 0.0 1.0 -   117.0 25.0
+B 10.0 0.0 2.0 - 117.001 25.0
+END_STATIONS
+

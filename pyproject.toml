@@ -44,13 +44,15 @@ algorithms = ["scipy>=1.8", "matplotlib>=3.5"]
 emc = ["netCDF4>=1.6"]
 # MARE2DEM meshes (Shewchuk's Triangle)
 mare2dem = ["triangle>=20220202"]
+# validation against the JSON Schemas of the metadata
+schema = ["jsonschema>=4.17"]
 # coordinate reference systems
 geo = ["pyproj>=3.3"]
 # PCSF Studio, the graphical application
 studio = ["PySide6>=6.5", "matplotlib>=3.5"]
-all = ["pcsf[algorithms,emc,mare2dem,geo,studio]"]
+all = ["pcsf[algorithms,emc,mare2dem,geo,schema,studio]"]
 dev = [
-    "pcsf[algorithms,emc,mare2dem,geo]",
+    "pcsf[algorithms,emc,mare2dem,geo,schema]",
     "pytest>=7",
     "pytest-cov>=4",
     "ruff>=0.4",
@@ -83,7 +85,7 @@ include-package-data = true
 where = ["src"]
 
 [tool.setuptools.package-data]
-pcsf = ["py.typed"]
+pcsf = ["py.typed", "datasets/*/*", "schemas/*.json"]
 
 [tool.setuptools.dynamic]
 version = { attr = "pcsf._version.__version__" }

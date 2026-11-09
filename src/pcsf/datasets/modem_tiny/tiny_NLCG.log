@@ -1,0 +1,5 @@
+ START: f= 9.00000E+01 m2= 0.00000E+00 rms= 9.500000 lambda= 1.00000E+01 alpha= 2.00000E+01
+ Completed NLCG iteration 1
+     with: f= 3.78000E+01 m2= 1.00000E-01 rms= 4.200000 lambda= 1.00000E+01 alpha= 2.00000E+01
+ Completed NLCG iteration 2
+     with: f= 1.71000E+01 m2= 2.00000E-01 rms= 1.900000 lambda= 1.00000E+01 alpha= 2.00000E+01

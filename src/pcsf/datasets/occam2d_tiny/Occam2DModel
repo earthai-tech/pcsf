@@ -1,0 +1,11 @@
+Format: OCCAM2MTMOD_1.0
+Model Name: tiny
+Mesh File: Occam2DMesh
+Mesh Type: PW2D
+Num Layers: 3
+1 4
+2 2 2 2
+1 2
+4 4
+1 1
+8

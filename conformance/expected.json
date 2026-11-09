@@ -1,0 +1,295 @@
+{
+  "format_version": "0.1.0",
+  "valid": [
+    {
+      "file": "grid2d_occam2d.pcsf",
+      "kind": "grid2d",
+      "shape": [
+        4,
+        8
+      ],
+      "resistivity_sha256": "0a4cd78a8b7aa2bda07ee23d459f8c9cc6e83cc218062ff3c2ae95d5547acaf2",
+      "rules": [
+        "C1.kind",
+        "C2.positive",
+        "C3.shape",
+        "C4.encoding",
+        "C5.native",
+        "C8.lonlat"
+      ]
+    },
+    {
+      "file": "grid2d_occam2d.pcsm",
+      "kind": "grid2d",
+      "shape": [
+        4,
+        8
+      ],
+      "resistivity_sha256": "0a4cd78a8b7aa2bda07ee23d459f8c9cc6e83cc218062ff3c2ae95d5547acaf2",
+      "rules": [
+        "C1.kind",
+        "C2.positive",
+        "C3.shape",
+        "C4.encoding",
+        "C5.native",
+        "C8.lonlat"
+      ]
+    },
+    {
+      "file": "grid2d_occam2d.pcsm.gz",
+      "kind": "grid2d",
+      "shape": [
+        4,
+        8
+      ],
+      "resistivity_sha256": "0a4cd78a8b7aa2bda07ee23d459f8c9cc6e83cc218062ff3c2ae95d5547acaf2",
+      "rules": [
+        "C1.kind",
+        "C2.positive",
+        "C3.shape",
+        "C4.encoding",
+        "C5.native",
+        "C8.lonlat"
+      ]
+    },
+    {
+      "file": "grid3d_modem.pcsf",
+      "kind": "grid3d",
+      "shape": [
+        3,
+        4,
+        5
+      ],
+      "resistivity_sha256": "5d9511a2081dd29b97d7093881653167812ad5a704c94fb1f4b8578d10de0af2",
+      "rules": [
+        "C1.kind",
+        "C2.positive",
+        "C3.shape",
+        "C4.encoding",
+        "C5.native",
+        "C8.lonlat"
+      ]
+    },
+    {
+      "file": "grid3d_modem.pcsm",
+      "kind": "grid3d",
+      "shape": [
+        3,
+        4,
+        5
+      ],
+      "resistivity_sha256": "5d9511a2081dd29b97d7093881653167812ad5a704c94fb1f4b8578d10de0af2",
+      "rules": [
+        "C1.kind",
+        "C2.positive",
+        "C3.shape",
+        "C4.encoding",
+        "C5.native",
+        "C8.lonlat"
+      ]
+    },
+    {
+      "file": "grid3d_modem.pcsm.gz",
+      "kind": "grid3d",
+      "shape": [
+        3,
+        4,
+        5
+      ],
+      "resistivity_sha256": "5d9511a2081dd29b97d7093881653167812ad5a704c94fb1f4b8578d10de0af2",
+      "rules": [
+        "C1.kind",
+        "C2.positive",
+        "C3.shape",
+        "C4.encoding",
+        "C5.native",
+        "C8.lonlat"
+      ]
+    },
+    {
+      "file": "mesh_mare2dem.pcsf",
+      "kind": "mesh_unstructured",
+      "shape": [
+        4
+      ],
+      "resistivity_sha256": "1af976052ef7476c0ebc982a250f4e51e341fb21d2a866e1bb393a74d0f0f811",
+      "rules": [
+        "C1.kind",
+        "C2.positive",
+        "C3.shape"
+      ]
+    },
+    {
+      "file": "mesh_mare2dem.pcsm",
+      "kind": "mesh_unstructured",
+      "shape": [
+        4
+      ],
+      "resistivity_sha256": "1af976052ef7476c0ebc982a250f4e51e341fb21d2a866e1bb393a74d0f0f811",
+      "rules": [
+        "C1.kind",
+        "C2.positive",
+        "C3.shape"
+      ]
+    },
+    {
+      "file": "mesh_mare2dem.pcsm.gz",
+      "kind": "mesh_unstructured",
+      "shape": [
+        4
+      ],
+      "resistivity_sha256": "1af976052ef7476c0ebc982a250f4e51e341fb21d2a866e1bb393a74d0f0f811",
+      "rules": [
+        "C1.kind",
+        "C2.positive",
+        "C3.shape"
+      ]
+    },
+    {
+      "file": "multiline.pcsf",
+      "kind": "multiline",
+      "shape": null,
+      "resistivity_sha256": null,
+      "rules": [
+        "C1.kind",
+        "C2.positive",
+        "C3.shape",
+        "C6.multiline_root",
+        "C7.synthesized"
+      ]
+    },
+    {
+      "file": "multiline.pcsm",
+      "kind": "multiline",
+      "shape": null,
+      "resistivity_sha256": null,
+      "rules": [
+        "C1.kind",
+        "C2.positive",
+        "C3.shape",
+        "C6.multiline_root",
+        "C7.synthesized"
+      ]
+    },
+    {
+      "file": "multiline.pcsm.gz",
+      "kind": "multiline",
+      "shape": null,
+      "resistivity_sha256": null,
+      "rules": [
+        "C1.kind",
+        "C2.positive",
+        "C3.shape",
+        "C6.multiline_root",
+        "C7.synthesized"
+      ]
+    },
+    {
+      "file": "grid2d_with_record.pcsf",
+      "kind": "grid2d",
+      "shape": [
+        4,
+        8
+      ],
+      "resistivity_sha256": "0a4cd78a8b7aa2bda07ee23d459f8c9cc6e83cc218062ff3c2ae95d5547acaf2",
+      "rules": [
+        "C1.kind",
+        "C2.positive",
+        "C3.shape",
+        "C4.encoding",
+        "C5.native",
+        "C8.lonlat"
+      ]
+    },
+    {
+      "file": "grid2d_with_record.pcsm",
+      "kind": "grid2d",
+      "shape": [
+        4,
+        8
+      ],
+      "resistivity_sha256": "0a4cd78a8b7aa2bda07ee23d459f8c9cc6e83cc218062ff3c2ae95d5547acaf2",
+      "rules": [
+        "C1.kind",
+        "C2.positive",
+        "C3.shape",
+        "C4.encoding",
+        "C5.native",
+        "C8.lonlat"
+      ]
+    },
+    {
+      "file": "grid2d_with_record.pcsm.gz",
+      "kind": "grid2d",
+      "shape": [
+        4,
+        8
+      ],
+      "resistivity_sha256": "0a4cd78a8b7aa2bda07ee23d459f8c9cc6e83cc218062ff3c2ae95d5547acaf2",
+      "rules": [
+        "C1.kind",
+        "C2.positive",
+        "C3.shape",
+        "C4.encoding",
+        "C5.native",
+        "C8.lonlat"
+      ]
+    }
+  ],
+  "rule": [
+    {
+      "file": "rule_c2_negative.pcsf",
+      "failed_rules": [
+        "C2.positive"
+      ]
+    },
+    {
+      "file": "rule_c2_negative.pcsm",
+      "failed_rules": [
+        "C2.positive"
+      ]
+    },
+    {
+      "file": "rule_c5_native_mismatch.pcsf",
+      "failed_rules": [
+        "C5.native"
+      ]
+    },
+    {
+      "file": "rule_c5_native_mismatch.pcsm",
+      "failed_rules": [
+        "C5.native"
+      ]
+    },
+    {
+      "file": "rule_c7_not_synthesized.pcsf",
+      "failed_rules": [
+        "C7.synthesized"
+      ]
+    },
+    {
+      "file": "rule_c7_not_synthesized.pcsm",
+      "failed_rules": [
+        "C7.synthesized"
+      ]
+    }
+  ],
+  "reject": [
+    {
+      "file": "reject_unknown_encoding.pcsm",
+      "error": "EncodingError"
+    },
+    {
+      "file": "reject_shape_mismatch.pcsm",
+      "error": "GeometryError"
+    },
+    {
+      "file": "reject_major_version.pcsm",
+      "error": "VersionError"
+    },
+    {
+      "file": "reject_missing_block_end.pcsm",
+      "error": "PCSMSyntaxError"
+    }
+  ]
+}

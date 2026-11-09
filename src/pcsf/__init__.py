@@ -15,6 +15,7 @@ Quick start::
     pcsf.write(model, "model.pcsm.gz")
 """
 
+from . import datasets
 from ._version import FORMAT_VERSION, __version__
 from .api import convert, detect, info, read, validate, write
 from .core import (
@@ -83,6 +84,7 @@ __all__ = [
     "check_inversion_record",
     # facade
     "convert",
+    "datasets",
     "detect",
     "get_inversion_record",
     "info",

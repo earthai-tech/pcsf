@@ -56,7 +56,7 @@ from typing import Any
 
 import numpy as np
 
-from ..exceptions import PCSMSyntaxError
+from ..exceptions import GeometryError, PCSMSyntaxError
 from .schema import (
     PCSF_VERSION,
     RESISTIVITY_UNIT,
@@ -201,9 +201,7 @@ def _fmt(value: Any) -> str:
 # must be able to tell linear from log10 at the point they see numbers.
 # ---------------------------------------------------------------------
 
-_LINEAR_LABEL = (
-    "linear ohm.m (canonical, see model/resistivity in SPEC.md S4)"
-)
+_LINEAR_LABEL = "linear ohm.m (canonical; spec/pcsf-0.1.md, section 2)"
 _LOG10_VIEW_LABEL = (
     "log10(ohm.m) -- derived view for human inspection only; "
     "read_pcsm() discards this, it is never part of the model"
@@ -1112,7 +1110,13 @@ def _read_shaped(
     flat = _read_floats(cursor, keyword)
     if kind == "mesh_unstructured":
         return flat
-    return flat.reshape(geometry.resistivity_shape)
+    shape = geometry.resistivity_shape
+    if flat.size != int(np.prod(shape)):
+        raise GeometryError(
+            f"{keyword} has {flat.size} values, geometry needs "
+            f"{int(np.prod(shape))} {shape}"
+        )
+    return flat.reshape(shape)
 
 
 def _json_default(value: Any) -> Any:

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/earthai-tech/pcsf/schemas/model-provenance.schema.json",
+  "title": "PCSF model provenance",
+  "description": "The machine-learning model behind a resistivity result (metadata[\"model_provenance\"] of a PCSF model). Every field is optional.",
+  "type": "object",
+  "properties": {
+    "architecture": {"type": "string"},
+    "framework": {"type": "string"},
+    "framework_version": {"type": "string"},
+    "checkpoint": {"type": "string"},
+    "checkpoint_sha256": {
+      "anyOf": [
+        {"const": ""},
+        {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      ]
+    },
+    "training_data": {"type": "string"},
+    "hyperparameters": {"type": "object"},
+    "random_seed": {"type": ["integer", "null"]},
+    "git_commit": {"type": "string"},
+    "authors": {"type": "array", "items": {"type": "string"}},
+    "contact": {"type": "string"},
+    "notes": {"type": "string"},
+    "extra": {"type": "object"}
+  },
+  "additionalProperties": false
+}

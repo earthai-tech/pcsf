@@ -1,12 +1,21 @@
-"""Pure parsers of solver files (planned for phase 2).
+"""Parsers of solver files, with NumPy as the only dependency.
 
-Each module will read one solver's native files with NumPy only, so
-that pcsf converts solver output without depending on any inversion
-package:
+Each module reads one solver's files so that pcsf converts solver
+output without depending on any inversion package. The parsers
+follow the rules of pyCSAMT's readers, so that both give
+bit-identical arrays.
 
-- ``occam2d``  -- Occam2D mesh, model, iteration and data files
-- ``modem``    -- ModEM ``.rho`` models and ``.dat`` data files
-- ``mare2dem`` -- MARE2DEM ``.resistivity`` and ``.poly`` files
-- ``emc``      -- EarthScope / IRIS Earth Model Collaboration netCDF
-  files
+Modules
+-------
+occam2d
+    Occam2D mesh, model, iteration, data and log files.
+modem
+    ModEM ``.rho`` models, ``.dat`` station tables and NLCG logs.
+mare2dem
+    MARE2DEM ``.resistivity`` tables, ``.poly`` graphs and logs;
+    triangulation needs ``pcsf[mare2dem]``.
 """
+
+from . import mare2dem, modem, occam2d
+
+__all__ = ["mare2dem", "modem", "occam2d"]

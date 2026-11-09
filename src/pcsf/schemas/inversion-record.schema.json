@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/earthai-tech/pcsf/schemas/inversion-record.schema.json",
+  "title": "PCSF inversion record",
+  "description": "How a resistivity model was obtained (metadata[\"inversion\"] of a PCSF model). A record that validates against this schema has every required field; recommended fields are typed but optional.",
+  "type": "object",
+  "required": ["solver", "data", "regularization", "misfit"],
+  "properties": {
+    "solver": {"type": "string", "minLength": 1},
+    "solver_version": {"type": ["string", "null"]},
+    "data": {
+      "type": "object",
+      "required": ["components", "frequency_range_hz", "n_stations", "errors"],
+      "properties": {
+        "components": {
+          "type": "array", "minItems": 1, "items": {"type": "string"}
+        },
+        "frequency_range_hz": {
+          "type": "array", "minItems": 2, "maxItems": 2,
+          "items": {"type": "number", "exclusiveMinimum": 0}
+        },
+        "n_frequencies": {"type": "integer", "minimum": 1},
+        "n_stations": {"type": "integer", "minimum": 1},
+        "errors": {"type": "string", "minLength": 1},
+        "sign_convention": {"type": "string"},
+        "source": {"type": "string"}
+      }
+    },
+    "forward": {
+      "type": "object",
+      "properties": {
+        "dimensionality": {"enum": ["1D", "2D", "2.5D", "3D"]},
+        "mesh": {"type": ["string", "object"]}
+      }
+    },
+    "regularization": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {"type": "string", "minLength": 1},
+        "trade_off": {"type": ["number", "string"]},
+        "start_model": {"type": "string"}
+      }
+    },
+    "misfit": {
+      "type": "object",
+      "required": ["final_rms", "termination"],
+      "properties": {
+        "final_rms": {"type": "number", "minimum": 0},
+        "target_rms": {"type": "number", "minimum": 0},
+        "n_iterations": {"type": "integer", "minimum": 0},
+        "termination": {
+          "enum": [
+            "target_reached", "iteration_limit", "time_limit",
+            "stalled", "unknown"
+          ]
+        }
+      }
+    },
+    "reliability": {
+      "type": "object",
+      "properties": {
+        "method": {"type": "string"},
+        "depth_of_investigation_m": {
+          "type": "object",
+          "additionalProperties": {"type": "number", "minimum": 0}
+        }
+      }
+    },
+    "citation": {
+      "type": "object",
+      "properties": {
+        "authors": {
+          "type": ["array", "string"], "items": {"type": "string"}
+        },
+        "title": {"type": "string"},
+        "year": {"type": ["integer", "string"]},
+        "doi": {"type": "string"},
+        "licence": {"type": "string"}
+      }
+    }
+  }
+}
