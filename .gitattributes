@@ -1,0 +1,23 @@
+# Store text files with LF line endings in the repository; Git converts
+# them for each platform's working copy.
+* text=auto eol=lf
+
+# Windows scripts keep CRLF
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+*.ps1   text eol=crlf
+*.iss   text eol=crlf
+
+# Binary data: never convert or diff as text
+*.pcsf  binary
+*.h5    binary
+*.hdf5  binary
+*.nc    binary
+*.gz    binary
+*.png   binary
+*.pdf   binary
+*.ico   binary
+*.exe   binary
+
+# PCSM reference files are text, but must stay byte-exact for the conformance suite
+*.pcsm  text eol=lf
