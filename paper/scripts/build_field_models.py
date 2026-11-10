@@ -22,6 +22,12 @@ Inputs, all in the data archive (``paths``): the native runs under
 ``native/``, the processed EDI files under ``edi/``, and under
 ``rebuild/`` the earlier conversions that carry the station tables
 and the two synthetic predictions.
+
+Only lines L18 and L22 of the Baohuashan survey are public. For a
+line whose EDI files or Occam2D data file are absent, and for the
+ModEM data files (which hold all lines), the archived model and its
+inversion record are used instead of a rebuild; the files are
+available from the authors on reasonable request.
 """
 
 from __future__ import annotations
@@ -34,6 +40,7 @@ from pathlib import Path
 import numpy as np
 
 import figstyle as fs
+import inversion_records as ir
 import paths
 from pycsamt.emtools import ensure_sites
 from pcsf import read_pcsf, write_pcsf, write_pcsm
@@ -123,6 +130,15 @@ def edi_station_table(line: str) -> dict[str, tuple[float, float, float]]:
     return {key(n): (lo, la, z) for n, (la, lo), z in zip(names, latlon, elev)}
 
 
+def archived_line(line: str, dst: Path):
+    """Copy the archived model of a line whose data are withheld."""
+    src = ir.ARCHIVED / dst.name
+    if src.resolve() != dst.resolve():
+        shutil.copyfile(src, dst)
+    model = read_pcsf(dst)
+    return model, model.metadata["final_rms"]
+
+
 def build_occam_line(line: str):
     wd = OCCAM / f"{line}PLT"
     table = edi_station_table(line)
@@ -195,7 +211,6 @@ def attach_records(rows) -> None:
     (results/inversion_records.csv)."""
     import json
 
-    import inversion_records as ir
     from pcsf import attach_inversion_record, check_inversion_record
     from pcsf.core.record import RECOMMENDED_FIELDS, REQUIRED_FIELDS
     from pycsamt.models.mare2dem.results import InversionResult as M2Result
@@ -206,7 +221,11 @@ def attach_records(rows) -> None:
         model = read_pcsf(path)
         if name.startswith("baohuashan_occam2d_"):
             line = name.rsplit("_", 1)[1]
-            rec = ir.occam_baohuashan(line, InversionResult(OCCAM / f"{line}PLT"), doi)
+            if ir.has_line_data(line):
+                rec = ir.occam_baohuashan(
+                    line, InversionResult(OCCAM / f"{line}PLT"), doi)
+            else:
+                rec = ir.archived_record(name)
         elif name == "baohuashan_multiline":
             rec = ir.occam_baohuashan("L18", InversionResult(OCCAM / "L18PLT"), doi)
             rec.data["source"] = "processed EDI files, Baohuashan lines L18-L34"
@@ -218,9 +237,18 @@ def attach_records(rows) -> None:
             rec.reliability["depth_of_investigation_m"] = {
                 s: doi[key(s)] for s in model.stations.name if key(s) in doi}
         elif name == "baohuashan_modem3d":
-            rec = ir.modem_baohuashan(doi, list(model.stations.name))
+            data = paths.MODEM_FIELD / "ModEMData_v5_offdiag.dat"
+            if data.is_file():
+                rec = ir.modem_baohuashan(
+                    doi, list(model.stations.name))
+            else:
+                rec = ir.archived_record(name)
         elif name == "baohuashan_modem3d_sample":
-            rec = ir.modem_sample()
+            data = paths.MODEM_SAMPLE / "27-freq-run-watex01.dat"
+            if data.is_file():
+                rec = ir.modem_sample()
+            else:
+                rec = ir.archived_record(name)
         elif name == "tongkeng_occam2d":
             rec = ir.occam_tongkeng(InversionResult(paths.TONGKENG))
         elif name == "mare2dem_demo":
@@ -272,9 +300,13 @@ def main():
 
     profiles = {}
     for line in LINES:
-        model, rms = build_occam_line(line)
         dst = fs.DATA / f"baohuashan_occam2d_{line}.pcsf"
-        write_pcsf(model, dst)
+        if ir.has_line_data(line):
+            model, rms = build_occam_line(line)
+            write_pcsf(model, dst)
+        else:
+            model, rms = archived_line(line, dst)
+            print(f"{line}: data withheld, archived model used")
         rows.append((dst.stem, dst))
         st = model.stations
         profiles[line] = {

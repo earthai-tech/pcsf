@@ -1512,11 +1512,12 @@ non-converged 2D runs as the main difference.
 \ifreview\else
 \section{ACKNOWLEDGMENTS}
 
-The author thanks the developers of h5py, HDF5 and the Triangle mesh
-generator.
+The author thanks Rujun Chen, leader of GSAI Geophysics Ltd, for
+permission to use the Baohuashan data to test the format and for the
+advancement of science, and the developers of h5py, HDF5 and the
+Triangle mesh generator.
 \pending{Name and thank the colleague who provided the ModEM 3D
-inversion; funding; data providers for the Baohuashan and Tongkeng
-surveys.}
+inversion; funding; data providers for the Tongkeng survey.}
 \pending{AI disclosure as required by SEG, for example: ``The author
 used [tool, version] to draft and edit parts of the manuscript and the
 analysis scripts. The author reviewed and revised all text and code
@@ -1533,27 +1534,31 @@ anonymous.4open.science)}
 \else
 \url{https://github.com/earthai-tech/pcsf}
 \fi
-under the BSD 3-Clause
-licence; the repository also holds the specification of the format,
-its JSON Schemas and its conformance suite. The folder \code{paper} of that
-repository reproduces every number, table and figure of this paper:
-\code{run\_all.py} runs all analyses with pcsf alone from the archived
-models and native solver files; \code{run\_all.py --rebuild} first
-rebuilds the models from the solver runs and EDI files with pyCSAMT
-\citep{Kouadio2022}; and \code{check\_results.py} compares the output
-with the values reported here. The data, namely the models in PCSF
-and PCSM, the native Occam2D, ModEM and MARE2DEM runs, the processed
-EDI files of the Baohuashan survey and the EMC files, are archived on
-Zenodo \pending{DOI of the data record}. The three EMC models and
-their ModEM solver files are also available from the EarthScope Earth
-Model Collaboration \citep{EMC_MCR,EMC_THO,EMC_WUS}.
-\pending{Software and data DOIs (Zenodo; the instructions ask for a
-DOI and a reference-list entry for each deposit); licence of the
-Baohuashan and Tongkeng data and of the ModEM model, with the
-agreement of its author. For the Software and Algorithms section the
-source code is uploaded with the submission as a zip file without
-binaries (\code{paper/tools/make\_seg\_code\_package.py}), because links to
-external repositories are not sufficient.}
+under the BSD 3-Clause licence; the repository also holds the
+specification of the format, its JSON Schemas and its conformance
+suite, and its source code accompanies the submission. The folder
+\code{paper} of that repository reproduces every number, table and
+figure of this paper: \code{run\_all.py} runs all analyses with pcsf
+alone from the archived models and native solver files;
+\code{run\_all.py --rebuild} first rebuilds the models from the solver
+runs and EDI files with pyCSAMT \citep{Kouadio2022,Kouadio2026Zenodo};
+and \code{check\_results.py} compares the output with the values
+reported here.
+
+The data archive \citep{PCSFdata} holds the models in PCSF and PCSM,
+the native Occam2D, ModEM and MARE2DEM runs, the processed EDI files of
+Baohuashan lines L18 and L22, and the three EMC models. The measured
+data of the other Baohuashan lines are not public: the archive holds
+the inversion models of all lines, but not the EDI files and Occam2D
+data files of lines L26, L30 and L34 or the data files of the two
+ModEM runs, which are available from the corresponding author on
+reasonable request. Every result of the paper can be reproduced
+without them; only the rebuild of those models needs them. The EMC
+models are openly available from the EarthScope Earth Model
+Collaboration \citep{EMC_MCR,EMC_THO,EMC_WUS} and are included in the
+archive unchanged.
+\pending{DOI of the data record \citep{PCSFdata}; agreement of the
+author of the Baohuashan ModEM model to its release.}
 
 % =====================================================================
 \append[app:layout]{HDF5 layout}

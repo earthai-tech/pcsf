@@ -23,6 +23,9 @@ warnings.filterwarnings("ignore")
 EDI_ROOT = paths.EDI
 MODEM_STUDENT = paths.MODEM_FIELD
 LINES = ["L18", "L22", "L26", "L30", "L34"]
+#: Models of the data archive, whose records stand in for the inputs
+#: of lines whose measured data are withheld.
+ARCHIVED = paths.DATA / "models"
 NB_CONST = 356.0  # sqrt(1 / (2 pi mu0)) in m / sqrt(ohm m s)
 
 
@@ -51,10 +54,41 @@ def nb_depth_of_investigation(line: str) -> dict[str, float]:
     return out
 
 
+def has_line_data(line: str) -> bool:
+    """Whether the measured data of a Baohuashan line are available.
+
+    Only lines L18 and L22 are public; the archive holds the models
+    of the other lines but not their EDI files or Occam2D data files.
+    """
+    return ((EDI_ROOT / f"{line}PLT").is_dir()
+            and (paths.OCCAM_BAOHUASHAN / f"{line}PLT"
+                 / "OccamDataFile.dat").is_file())
+
+
+def archived_record(name: str) -> InversionRecord:
+    """Inversion record of an archived model (``data/models``)."""
+    from pcsf import get_inversion_record, read_pcsf
+
+    rec = get_inversion_record(read_pcsf(ARCHIVED / f"{name}.pcsf"))
+    if rec is None:
+        raise SystemExit(f"{name}.pcsf in {ARCHIVED} has no record")
+    return rec
+
+
 def all_doi() -> dict[str, float]:
+    """Depth of investigation of every Baohuashan station (m).
+
+    Computed from the EDI files where they are available; for lines
+    whose data are withheld, read from the archived model's record.
+    """
     d = {}
     for line in LINES:
-        d.update(nb_depth_of_investigation(line))
+        if has_line_data(line):
+            d.update(nb_depth_of_investigation(line))
+            continue
+        rec = archived_record(f"baohuashan_occam2d_{line}")
+        doi = rec.reliability["depth_of_investigation_m"]
+        d.update({key(s): float(v) for s, v in doi.items()})
     return d
 
 

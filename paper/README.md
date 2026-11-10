@@ -51,18 +51,27 @@ The archive `pcsf-paper-data-<version>.zip` (Zenodo, see
 |---|---|---|
 | `models/` | the 14 models of the paper, `.pcsf` and `.pcsm` | converted from the runs below |
 | `native/occam2d/tongkeng/` | Occam2D run, Tongkeng CSAMT line | Kouadio et al. (2020) |
-| `native/occam2d/baohuashan/L18PLT` ... `L34PLT` | Occam2D runs, five Baohuashan AMT lines | Kouabena et al. (2025) |
-| `native/modem/baohuashan/` | ModEM 3D inversion, Baohuashan survey | Kouabena et al. (2025) |
-| `native/modem/sample/` | ModEM 3D sample run (27 frequencies) | pyCSAMT sample data |
+| `native/occam2d/baohuashan/L18PLT` ... `L34PLT` | Occam2D runs, five Baohuashan AMT lines (data files for L18 and L22 only) | Kouabena et al. (2025) |
+| `native/modem/baohuashan/` | ModEM 3D inversion, Baohuashan survey (model and log; no data file) | Kouabena et al. (2025) |
+| `native/modem/sample/` | ModEM 3D sample run (27 frequencies; no data file) | pyCSAMT sample data |
 | `native/mare2dem/demo/` | MARE2DEM demonstration inversion | MARE2DEM distribution |
 | `native/emc/` | three EMC netCDF files and the ModEM models they derive from, with their readme files | IRIS EMC (USGS models, Bedrosian et al.) |
-| `edi/baohuashan/` | processed EDI files of the five lines | Kouabena et al. (2025) |
+| `edi/baohuashan/` | processed EDI files of lines L18 and L22 | Kouabena et al. (2025) |
 | `tables/` | run summary of the Occam2D lines | |
 | `rebuild/` | earlier conversions with station tables, synthetic predictions, Tongkeng topography | pyCSAMT examples |
 
 Of each Occam2D run, the archive keeps the mesh, model, data, startup,
 log, every iteration file and the final response; the console logs
-(up to 240 MB per run) are left out. `data/SHA256SUMS` lists every
+(up to 240 MB per run) are left out.
+
+Only lines L18 and L22 of the Baohuashan survey are public. The
+archive holds the models of all lines, but the measured data of
+lines L26, L30 and L34 (EDI files, Occam2D data files and responses)
+and the data files of the two ModEM runs, which hold all stations,
+are left out and listed in `data/RESTRICTED.txt`; they are available
+from the authors on reasonable request. Tier 1 needs none of them.
+Tier 2 rebuilds what the public data allow and takes the other
+Baohuashan models, with their inversion records, from `data/models`. `data/SHA256SUMS` lists every
 file; `fetch_data.py --check` re-checks them.
 
 `tools/make_data_archive.py` assembles the archive from the authors'
