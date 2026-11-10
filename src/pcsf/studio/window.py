@@ -12,16 +12,29 @@ application (pyCSAMT's desktop app uses it this way):
   histogram of :math:`\\log_{10}\\rho`, on the right.
 
 :class:`StudioWindow` is the standalone application around it: a
-toolbar (open, samples, save, export, and the help menu behind the
-logo at the far right), a welcome page with recent files, and drag
-and drop.
+toolbar (the logo at the far left, which leads to the start page;
+open, samples, save, export; the theme and the ``?`` help menus at
+the far right), a start page with recent files, and drag and drop.
 
 The widgets only display what :mod:`pcsf.studio.figures` draws and
 :mod:`pcsf.studio.summary` computes; they hold no format logic.
+
+Notes
+-----
+Colours come from a :class:`~pcsf.studio.style.Theme` (light, dark,
+or the one of the desktop). Panels whose content does not fit get
+a scroll bar instead of being cut: the statistics panel and the
+start page vertically, the header chips and the plot controls
+horizontally. The window opens centred on the screen, at most
+:data:`SCREEN_SHARE` of its available area, and remembers its
+size, theme and panel layout between sessions.
 """
 
 from __future__ import annotations
 
+import logging
+import sys
+import traceback
 from pathlib import Path
 from typing import Any
 
@@ -31,12 +44,27 @@ from matplotlib.backends.backend_qtagg import (
     NavigationToolbar2QT,
 )
 from matplotlib.figure import Figure
-from PySide6.QtCore import QSettings, QSize, Qt, QUrl, Signal
+from PySide6.QtCore import (
+    QByteArray,
+    QRect,
+    QSettings,
+    QSize,
+    Qt,
+    QUrl,
+    Signal,
+)
 from PySide6.QtGui import (
     QAction,
+    QActionGroup,
+    QColor,
     QDesktopServices,
+    QGuiApplication,
     QIcon,
     QKeySequence,
+    QPainter,
+    QPalette,
+    QPen,
+    QPixmap,
 )
 from PySide6.QtWidgets import (
     QApplication,
@@ -55,6 +83,7 @@ from PySide6.QtWidgets import (
     QMenu,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QSizePolicy,
     QSlider,
     QSplitter,
@@ -74,9 +103,17 @@ from .. import __version__, datasets
 from ..api import write
 from . import figures, summary
 from .sources import LoadedModel, open_source
-from .style import ACCENT, STYLE_SHEET
+from .style import LIGHT, THEME_NAMES, Theme, get_theme, style_sheet
 
-__all__ = ["ModelView", "StudioWindow", "application"]
+__all__ = [
+    "ModelView",
+    "StudioWindow",
+    "application",
+    "system_is_dark",
+    "theme_palette",
+]
+
+logger = logging.getLogger(__name__)
 
 _RES = Path(__file__).resolve().parent / "resources"
 #: Logo of PCSF Studio (vector); ``ICON_PNG`` is its 256 px render.
@@ -95,6 +132,12 @@ CMAPS = ("jet_r", "viridis", "turbo_r", "RdYlBu", "Spectral", "gray")
 DOCS_URL = "https://github.com/earthai-tech/pcsf"
 SPEC_URL = "https://github.com/earthai-tech/pcsf/tree/master/spec"
 MAX_RECENT = 8
+#: Largest size (pixels) of the window when it first opens.
+DEFAULT_SIZE = (1280, 820)
+#: Largest share of the available screen the window first takes.
+SCREEN_SHARE = 0.82
+#: Height (pixels) kept free for a horizontal scroll bar.
+_BAR = 12
 
 _OPEN_FILTER = (
     "PCSF and solver files (*.pcsf *.pcsm *.gz *.nc *.rho "
@@ -110,6 +153,84 @@ def logo_icon() -> QIcon:
             if not icon.isNull():
                 return icon
     return QIcon()
+
+
+def system_is_dark() -> bool:
+    """Whether the desktop asks for a dark colour scheme.
+
+    Returns
+    -------
+    bool
+        True when Qt reports a dark scheme; False when it reports
+        a light one, does not know, or is older than 6.5.
+    """
+    try:
+        scheme = QGuiApplication.styleHints().colorScheme()
+        return scheme == Qt.ColorScheme.Dark
+    except AttributeError:  # Qt < 6.5 has no colour scheme
+        return False
+
+
+def theme_palette(theme: Theme) -> QPalette:
+    """Qt palette of a theme.
+
+    The style sheet colours the widgets it names; the palette
+    covers what the Qt style draws itself (check marks, spin box
+    arrows) and tells matplotlib's toolbar which icons to use.
+
+    Parameters
+    ----------
+    theme : Theme
+        Colours to use.
+
+    Returns
+    -------
+    QPalette
+        Palette with the disabled text colours set as well.
+    """
+    role = QPalette.ColorRole
+    pal = QPalette()
+    for key, colour in (
+        (role.Window, theme.back),
+        (role.WindowText, theme.ink),
+        (role.Base, theme.panel),
+        (role.AlternateBase, theme.raised),
+        (role.Text, theme.ink),
+        (role.Button, theme.panel),
+        (role.ButtonText, theme.ink),
+        (role.ToolTipBase, theme.raised),
+        (role.ToolTipText, theme.ink),
+        (role.Highlight, theme.accent),
+        (role.HighlightedText, theme.accent_ink),
+        (role.PlaceholderText, theme.muted),
+        (role.Link, theme.accent),
+    ):
+        pal.setColor(key, QColor(colour))
+    for key in (role.WindowText, role.Text, role.ButtonText):
+        pal.setColor(
+            QPalette.ColorGroup.Disabled, key, QColor(theme.muted)
+        )
+    return pal
+
+
+def _contrast_icon(colour: str, size: int = 18) -> QIcon:
+    """Half-filled disc, the usual sign of a theme switch."""
+    scale = 4  # drawn large and reduced by Qt, for smooth edges
+    px = QPixmap(size * scale, size * scale)
+    px.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(px)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    pen = QPen(QColor(colour))
+    pen.setWidthF(1.6 * scale)
+    painter.setPen(pen)
+    m = 2 * scale
+    box = QRect(m, m, px.width() - 2 * m, px.height() - 2 * m)
+    painter.drawEllipse(box)
+    painter.setBrush(QColor(colour))
+    # Qt angles are sixteenths of a degree, from three o'clock.
+    painter.drawPie(box, 90 * 16, 180 * 16)
+    painter.end()
+    return QIcon(px)
 
 
 # ------------------------------------------------------------- helpers
@@ -130,12 +251,66 @@ def _card() -> tuple[QFrame, QVBoxLayout]:
     return frame, lay
 
 
+def _rule() -> QFrame:
+    line = QFrame()
+    line.setObjectName("Rule")
+    return line
+
+
+def _scroll(
+    widget: QWidget, mode: str = "vertical", height: int = 0
+) -> QScrollArea:
+    """Wrap *widget* so that a scroll bar appears when it is cut.
+
+    Parameters
+    ----------
+    widget : QWidget
+        Content; it keeps its minimum size and is stretched to the
+        area when there is room.
+    mode : {"vertical", "horizontal", "both"}
+        ``"vertical"`` scrolls up and down, ``"horizontal"`` is a
+        strip of fixed height that scrolls sideways, ``"both"`` a
+        page that scrolls either way.
+    height : int, default 0
+        Height (pixels) of the content of a horizontal strip; its
+        size hint when 0.
+
+    Returns
+    -------
+    QScrollArea
+        Frameless, transparent area holding *widget*.
+    """
+    area = QScrollArea()
+    area.setObjectName("Scroll")
+    area.setWidgetResizable(True)
+    area.setFrameShape(QFrame.Shape.NoFrame)
+    widget.setObjectName(widget.objectName() or "ScrollBody")
+    area.setWidget(widget)
+    off = Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+    if mode == "horizontal":
+        area.setVerticalScrollBarPolicy(off)
+        area.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+        )
+        # The bar gets its own room so that it never hides content.
+        area.setFixedHeight(
+            (height or widget.sizeHint().height()) + _BAR
+        )
+    elif mode == "vertical":
+        area.setHorizontalScrollBarPolicy(off)
+    return area
+
+
 def _table(header: list[str], rows: list[list[Any]]) -> QTableWidget:
     t = QTableWidget(len(rows), len(header))
     t.setHorizontalHeaderLabels(header)
     t.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
     t.verticalHeader().setVisible(False)
-    t.setAlternatingRowColors(False)
+    t.setAlternatingRowColors(True)
+    t.setShowGrid(False)
+    # Scroll by pixel: rows of wrapped text would jump otherwise.
+    t.setHorizontalScrollMode(QTableWidget.ScrollMode.ScrollPerPixel)
+    t.setVerticalScrollMode(QTableWidget.ScrollMode.ScrollPerPixel)
     for i, row in enumerate(rows):
         for j, value in enumerate(row):
             text = (
@@ -143,7 +318,9 @@ def _table(header: list[str], rows: list[list[Any]]) -> QTableWidget:
                 if isinstance(value, float)
                 else str(value)
             )
-            t.setItem(i, j, QTableWidgetItem(text))
+            item = QTableWidgetItem(text)
+            item.setToolTip(text)
+            t.setItem(i, j, item)
     t.horizontalHeader().setSectionResizeMode(
         QHeaderView.ResizeMode.ResizeToContents
     )
@@ -154,10 +331,11 @@ def _table(header: list[str], rows: list[list[Any]]) -> QTableWidget:
 def _fill_tree(parent: Any, value: Any) -> None:
     for key, sub in value.items():
         if isinstance(sub, dict):
-            item = QTreeWidgetItem(parent, [key, ""])
+            item = QTreeWidgetItem(parent, [str(key), ""])
             _fill_tree(item, sub)
         else:
-            QTreeWidgetItem(parent, [key, str(sub)])
+            item = QTreeWidgetItem(parent, [str(key), str(sub)])
+            item.setToolTip(1, str(sub))
 
 
 def _num(value: float) -> str:
@@ -177,6 +355,24 @@ def _rho(value: float | None) -> str:
     text = _num(value)
     sep = "" if text.endswith(("k", "M")) else " "
     return f"{text}{sep}Ω·m"
+
+
+def _explain(exc: BaseException) -> str:
+    """One sentence a user can act on, for an error dialog."""
+    if isinstance(exc, FileNotFoundError):
+        return (
+            "The file or folder does not exist. It may have been "
+            "moved, renamed, or be on a drive that is not connected."
+        )
+    if isinstance(exc, PermissionError):
+        return (
+            "Access was denied. The file may be open in another "
+            "program, or the folder may be read-only."
+        )
+    if isinstance(exc, MemoryError):
+        return "There is not enough memory for this model."
+    text = str(exc).strip() or "no message"
+    return f"{type(exc).__name__}: {text}"
 
 
 class _Tile(QFrame):
@@ -238,19 +434,26 @@ class _StatsBlock(QWidget):
 
 
 class _StatsPanel(QWidget):
-    """Statistics of the model and of the current view."""
+    """Statistics of the model and of the current view.
+
+    The tiles and the histogram sit in a scroll area, so a short
+    window scrolls them instead of squeezing them.
+    """
 
     def __init__(self) -> None:
         super().__init__()
         self.setMinimumWidth(250)
-        self.setMaximumWidth(330)
-        card, lay = _card()
-        lay.addWidget(_label("STATISTICS", "Section"))
+        self.setMaximumWidth(340)
+        self.theme = LIGHT
+        body = QWidget()
+        lay = QVBoxLayout(body)
+        lay.setContentsMargins(0, 0, 4, 0)
+        lay.setSpacing(6)
         lay.addWidget(_label("Whole model", "Muted"))
         self.model_block = _StatsBlock()
         lay.addWidget(self.model_block)
         lay.addSpacing(4)
-        self.view_title = _label("Current view", "Muted")
+        self.view_title = _label("Current view", "Muted", wrap=True)
         lay.addWidget(self.view_title)
         self.view_block = _StatsBlock()
         lay.addWidget(self.view_block)
@@ -263,10 +466,18 @@ class _StatsPanel(QWidget):
         self.hist.setMinimumHeight(150)
         lay.addWidget(self.hist)
         lay.addStretch(1)
+        card, card_lay = _card()
+        card_lay.addWidget(_label("STATISTICS", "Section"))
+        card_lay.addWidget(_scroll(body), 1)
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
         outer.addWidget(card)
         self._model_logs = np.array([])
+        self._view: tuple[np.ndarray, float, float] | None = None
+
+    def set_theme(self, theme: Theme) -> None:
+        self.theme = theme
+        self._draw_hist()
 
     def set_model(self, model: Any) -> None:
         values = figures._model_values(model)
@@ -278,17 +489,25 @@ class _StatsPanel(QWidget):
     ) -> None:
         self.view_title.setText(f"Current view: {label}")
         self.view_block.show_stats(summary.value_stats(values))
+        self._view = (_earth_logs(values), vmin, vmax)
+        self._draw_hist()
+
+    def _draw_hist(self) -> None:
+        theme = self.theme
         fig = self.hist_fig
         fig.clear()
         ax = fig.add_subplot(1, 1, 1)
-        view_logs = _earth_logs(values)
+        if self._view is None:
+            view_logs, limits = np.array([]), ()
+        else:
+            view_logs, limits = self._view[0], self._view[1:]
         both = np.concatenate([self._model_logs, view_logs])
         if both.size:
             bins = np.linspace(both.min(), both.max() + 1e-9, 31)
             ax.hist(
                 self._model_logs,
                 bins=bins,
-                color="#c9cfdb",
+                color=theme.hist,
                 label="model",
                 density=True,
             )
@@ -296,13 +515,13 @@ class _StatsPanel(QWidget):
                 ax.hist(
                     view_logs,
                     bins=bins,
-                    color=ACCENT,
+                    color=theme.accent,
                     alpha=0.75,
                     label="view",
                     density=True,
                 )
-            for v in (vmin, vmax):
-                ax.axvline(v, color="#1f2533", lw=0.8, ls="--")
+            for v in limits:
+                ax.axvline(v, color=theme.ink, lw=0.8, ls="--")
         ax.set_yticks([])
         ax.tick_params(labelsize=7)
         for side in ("top", "right", "left"):
@@ -316,6 +535,12 @@ class _StatsPanel(QWidget):
                 bbox_to_anchor=(0.0, 1.0),
                 borderaxespad=0.0,
             )
+        figures.restyle(
+            fig,
+            ink=theme.ink,
+            background=theme.panel,
+            muted=theme.muted,
+        )
         self.hist.draw_idle()
 
 
@@ -346,12 +571,20 @@ class ModelView(QWidget):
         Figure of the plot panel.
     tabs : QTabWidget
         Inspector tabs.
+    stats : QWidget
+        Statistics panel.
+    split : QSplitter
+        Holds the inspector, the plot and the statistics.
+    theme : Theme
+        Colours in use, set by :meth:`set_theme`.
 
     Notes
     -----
     Signal ``model_changed(object)`` is emitted with the
     :class:`~pcsf.studio.sources.LoadedModel` after each
-    :meth:`set_model`.
+    :meth:`set_model`. Signal ``plot_failed(str)`` is emitted with
+    a message when a view cannot be drawn; the message is also
+    written on the plot, so the application keeps running.
 
     Examples
     --------
@@ -359,23 +592,29 @@ class ModelView(QWidget):
 
         from pcsf.studio import ModelView
         from pcsf.studio.sources import open_source
+        from pcsf.studio.style import DARK, style_sheet
 
         view = ModelView()
+        view.setStyleSheet(style_sheet(DARK))
+        view.set_theme(DARK)
         view.set_model(open_source("model.pcsf"))
         layout.addWidget(view)
     """
 
     model_changed = Signal(object)
+    plot_failed = Signal(str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("Page")
         self.loaded: LoadedModel | None = None
+        self.theme: Theme = LIGHT
         self.figure = Figure(figsize=(7, 5), layout="constrained")
         self.canvas = FigureCanvasQTAgg(self.figure)
         self.canvas.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
         )
+        self.canvas.setMinimumSize(260, 200)
         self.tabs = QTabWidget()
         self.stats = _StatsPanel()
         self._build()
@@ -383,30 +622,45 @@ class ModelView(QWidget):
     # ------------------------------------------------- layout
     def _header(self) -> QFrame:
         card, lay = _card()
-        row = QHBoxLayout()
         self.title = _label("", "Title")
-        row.addWidget(self.title)
-        row.addStretch(1)
-        lay.addLayout(row)
         self.subtitle = _label("", "Subtitle")
         self.subtitle.setTextInteractionFlags(
             Qt.TextInteractionFlag.TextSelectableByMouse
         )
-        lay.addWidget(self.subtitle)
-        self.chips = QHBoxLayout()
+        for lab in (self.title, self.subtitle):
+            # A long name or path must not widen the window; the
+            # full text is in the tool tip.
+            lab.setSizePolicy(
+                QSizePolicy.Policy.Ignored,
+                QSizePolicy.Policy.Preferred,
+            )
+            lay.addWidget(lab)
+        strip = QWidget()
+        self.chips = QHBoxLayout(strip)
+        self.chips.setContentsMargins(0, 0, 0, 0)
         self.chips.setSpacing(6)
-        lay.addLayout(self.chips)
+        lay.addWidget(_scroll(strip, "horizontal", height=24))
         return card
 
     def _controls(self) -> QWidget:
         self.view_box = QComboBox()
+        self.view_box.setMinimumWidth(110)
         self.slider = QSlider(Qt.Orientation.Horizontal)
+        self.slider.setMinimumWidth(120)
+        self.slider.setToolTip(
+            "Position of the slice, section or line "
+            "(arrow keys step by one)"
+        )
         self.position = _label("", "Muted")
         self.position.setMinimumWidth(110)
         self.cmap_box = QComboBox()
         self.cmap_box.addItems(CMAPS)
         self.auto_range = QCheckBox("Auto")
         self.auto_range.setChecked(True)
+        self.auto_range.setToolTip(
+            "Colour range from the 2nd to the 98th percentile of "
+            "the model"
+        )
         self.vmin = QDoubleSpinBox()
         self.vmax = QDoubleSpinBox()
         for box in (self.vmin, self.vmax):
@@ -414,68 +668,88 @@ class ModelView(QWidget):
             box.setDecimals(2)
             box.setSingleStep(0.1)
             box.setEnabled(False)
+            box.setMinimumWidth(70)
         self.depth = QDoubleSpinBox()
         self.depth.setRange(0.0, 1e7)
         self.depth.setDecimals(0)
         self.depth.setSingleStep(100.0)
         self.depth.setSpecialValueText("whole model")
         self.depth.setSuffix(" m")
+        self.depth.setMinimumWidth(105)
+        self.depth.setToolTip("Largest depth shown on sections")
         self.stations_box = QCheckBox("Stations")
         self.stations_box.setChecked(True)
         self.fit_box = QCheckBox("Fit to survey")
+        self.fit_box.setToolTip(
+            "Limit the horizontal axes to the station extent"
+        )
 
         box = QWidget()
         grid = QGridLayout(box)
-        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setContentsMargins(0, 2, 0, 0)
         grid.setHorizontalSpacing(8)
         grid.setVerticalSpacing(6)
         grid.addWidget(_label("View", "Muted"), 0, 0)
         grid.addWidget(self.view_box, 0, 1)
         grid.addWidget(_label("Position", "Muted"), 0, 2)
-        grid.addWidget(self.slider, 0, 3)
-        grid.addWidget(self.position, 0, 4)
+        pos = QHBoxLayout()
+        pos.addWidget(self.slider, 1)
+        pos.addWidget(self.position)
+        grid.addLayout(pos, 0, 3)
         grid.addWidget(_label("Colours", "Muted"), 1, 0)
         grid.addWidget(self.cmap_box, 1, 1)
         grid.addWidget(_label(LOG10_RHO, "Muted"), 1, 2)
         rng = QHBoxLayout()
+        rng.setSpacing(8)
         rng.addWidget(self.auto_range)
         rng.addWidget(self.vmin)
         rng.addWidget(_label("to", "Muted"))
         rng.addWidget(self.vmax)
-        rng.addSpacing(10)
-        rng.addWidget(_label("Depth", "Muted"))
-        rng.addWidget(self.depth)
         rng.addStretch(1)
-        grid.addLayout(rng, 1, 3, 1, 2)
+        grid.addLayout(rng, 1, 3)
+        grid.addWidget(_label("Depth", "Muted"), 2, 0)
+        grid.addWidget(self.depth, 2, 1)
+        grid.addWidget(_label("Show", "Muted"), 2, 2)
         opts = QHBoxLayout()
+        opts.setSpacing(12)
         opts.addWidget(self.stations_box)
         opts.addWidget(self.fit_box)
         opts.addStretch(1)
-        grid.addLayout(opts, 2, 1, 1, 4)
+        grid.addLayout(opts, 2, 3)
         grid.setColumnStretch(3, 1)
-        return box
+        return _scroll(box, "horizontal")
+
+    def _nav(self) -> NavigationToolbar2QT:
+        nav = NavigationToolbar2QT(self.canvas, self)
+        nav.setObjectName("PlotBar")
+        nav.setIconSize(QSize(18, 18))
+        return nav
 
     def _build(self) -> None:
-        plot_card, plot_lay = _card()
-        plot_lay.addWidget(NavigationToolbar2QT(self.canvas, self))
-        plot_lay.addWidget(self.canvas, 1)
-        plot_lay.addWidget(self._controls())
+        plot_card, self._plot_lay = _card()
+        self.nav = self._nav()
+        self._plot_lay.addWidget(self.nav)
+        self._plot_lay.addWidget(self.canvas, 1)
+        self._plot_lay.addWidget(_rule())
+        self._plot_lay.addWidget(self._controls())
 
-        self.tabs.setMinimumWidth(260)
-        split = QSplitter()
-        split.addWidget(self.tabs)
-        split.addWidget(plot_card)
-        split.addWidget(self.stats)
-        split.setStretchFactor(0, 0)
-        split.setStretchFactor(1, 1)
-        split.setStretchFactor(2, 0)
-        split.setSizes([320, 760, 280])
+        self.tabs.setMinimumWidth(240)
+        self.tabs.setUsesScrollButtons(True)
+        self.split = QSplitter()
+        self.split.setChildrenCollapsible(False)
+        self.split.addWidget(self.tabs)
+        self.split.addWidget(plot_card)
+        self.split.addWidget(self.stats)
+        self.split.setStretchFactor(0, 0)
+        self.split.setStretchFactor(1, 1)
+        self.split.setStretchFactor(2, 0)
+        self.split.setSizes([320, 760, 290])
 
         lay = QVBoxLayout(self)
         lay.setContentsMargins(10, 10, 10, 10)
         lay.setSpacing(10)
         lay.addWidget(self._header())
-        lay.addWidget(split, 1)
+        lay.addWidget(self.split, 1)
 
         self.view_box.currentTextChanged.connect(self._view_changed)
         self.slider.valueChanged.connect(self.redraw)
@@ -486,6 +760,79 @@ class ModelView(QWidget):
         self.stations_box.toggled.connect(self.redraw)
         self.fit_box.toggled.connect(self.redraw)
         self.depth.valueChanged.connect(self.redraw)
+        self._paint_empty()
+
+    # -------------------------------------------------- theme
+    def set_theme(self, theme: Theme) -> None:
+        """Use the colours of a theme for the plots.
+
+        The widget palette is set, the matplotlib toolbar is built
+        again (its icons depend on the background) and the plot
+        and the histogram are redrawn. The style sheet is not
+        touched: set :func:`~pcsf.studio.style.style_sheet` on
+        this widget or on its window.
+
+        Parameters
+        ----------
+        theme : Theme
+            :data:`~pcsf.studio.style.LIGHT` or
+            :data:`~pcsf.studio.style.DARK`.
+        """
+        self.theme = theme
+        self.setPalette(theme_palette(theme))
+        old, self.nav = self.nav, self._nav()
+        self._plot_lay.replaceWidget(old, self.nav)
+        old.hide()
+        old.deleteLater()
+        self.stats.set_theme(theme)
+        if self.loaded is None:
+            self._paint_empty()
+        else:
+            self.redraw()
+
+    def _restyle(self, theme: Theme | None = None) -> None:
+        theme = theme or self.theme
+        figures.restyle(
+            self.figure,
+            ink=theme.ink,
+            background=theme.panel,
+            muted=theme.muted,
+        )
+
+    def _paint_empty(self) -> None:
+        self.figure.clear()
+        self._restyle()
+        self.canvas.draw_idle()
+
+    def save_figure(self, path: Any, dpi: int = 200) -> None:
+        """Save the plot as it would print, on a white background.
+
+        Parameters
+        ----------
+        path : path-like
+            Target; the suffix gives the format (PNG, SVG, PDF...).
+        dpi : int, default 200
+            Resolution of raster formats, in dots per inch.
+
+        Raises
+        ------
+        OSError
+            If the file cannot be written.
+        ValueError
+            If matplotlib does not know the format.
+
+        Notes
+        -----
+        The figure is recoloured with the light theme for the
+        file and back to the current theme afterwards, so a dark
+        screen does not give a dark figure.
+        """
+        self._restyle(LIGHT)
+        try:
+            self.figure.savefig(path, dpi=dpi)
+        finally:
+            self._restyle()
+            self.canvas.draw_idle()
 
     # -------------------------------------------------- model
     def set_model(self, loaded: LoadedModel) -> None:
@@ -495,13 +842,32 @@ class ModelView(QWidget):
         ----------
         loaded : LoadedModel
             Result of :func:`~pcsf.studio.sources.open_source`.
+
+        Raises
+        ------
+        Exception
+            Whatever the inspector raised on a malformed model.
+            The model shown before, if any, is shown again, so the
+            view never mixes two models.
         """
-        self.loaded = loaded
+        previous = self.loaded
+        try:
+            self._show(loaded)
+        except Exception:
+            if previous is not None:
+                self._show(previous)
+            else:
+                self.loaded = None
+            raise
+        self.model_changed.emit(loaded)
+
+    def _show(self, loaded: LoadedModel) -> None:
         model = loaded.model
         self._fill_header(loaded)
         self._fill_tabs(loaded)
         self.stats.set_model(model)
         lo, hi = figures.color_range(model)
+        self.loaded = loaded
         # A depth limit belongs to one model; start each one whole.
         for box, value in (
             (self.vmin, lo),
@@ -516,7 +882,6 @@ class ModelView(QWidget):
         self.view_box.addItems(figures.views(model))
         self.view_box.blockSignals(False)
         self._view_changed(self.view_box.currentText())
-        self.model_changed.emit(loaded)
 
     def _chip(
         self, text: str, status: str = "", tip: str = ""
@@ -530,8 +895,10 @@ class ModelView(QWidget):
     def _fill_header(self, loaded: LoadedModel) -> None:
         model = loaded.model
         self.title.setText(loaded.path.name)
+        self.title.setToolTip(str(loaded.path))
         desc = model.description or "no description"
         self.subtitle.setText(f"{loaded.path.parent}  •  {desc}")
+        self.subtitle.setToolTip(f"{loaded.path.parent}\n{desc}")
         while self.chips.count():
             item = self.chips.takeAt(0)
             widget = item.widget()
@@ -578,6 +945,7 @@ class ModelView(QWidget):
 
     def _fill_tabs(self, loaded: LoadedModel) -> None:
         model = loaded.model
+        current = self.tabs.tabText(self.tabs.currentIndex())
         self.tabs.clear()
         self.tabs.addTab(
             _table(
@@ -593,10 +961,12 @@ class ModelView(QWidget):
         self.tabs.addTab(_table(header, rows), "Stations")
         tree = QTreeWidget()
         tree.setHeaderLabels(["Key", "Value"])
+        tree.setAlternatingRowColors(True)
         _fill_tree(
             tree.invisibleRootItem(), summary.metadata_tree(model)
         )
         tree.expandToDepth(0)
+        tree.resizeColumnToContents(0)
         self.tabs.addTab(tree, "Metadata")
         rows, req, rec = summary.record_rows(model)
         body = [list(r) for r in rows]
@@ -618,12 +988,22 @@ class ModelView(QWidget):
             notes = [[w] for w in loaded.warnings]
             notes += [[f"read {p}"] for p in loaded.files]
             self.tabs.addTab(_table(["Note"], notes), "Reading")
+        # Keep the tab the user was reading across models.
+        for i in range(self.tabs.count()):
+            if self.tabs.tabText(i) == current:
+                self.tabs.setCurrentIndex(i)
+                break
 
     # --------------------------------------------------- plot
     def _view_changed(self, view: str) -> None:
         if self.loaded is None or not view:
             return
-        n = figures.n_positions(self.loaded.model, view)
+        try:
+            n = figures.n_positions(self.loaded.model, view)
+        except Exception as exc:  # reported on the plot
+            self._plot_error(exc)
+            return
+        n = max(int(n), 1)
         self.slider.blockSignals(True)
         self.slider.setRange(0, n - 1)
         self.slider.setValue(n // 2 if view == "depth slice" else 0)
@@ -636,35 +1016,61 @@ class ModelView(QWidget):
         self.vmax.setEnabled(not auto)
         self.redraw()
 
+    def _plot_error(self, exc: BaseException) -> None:
+        """Write a drawing error on the plot instead of raising."""
+        logger.warning("cannot draw the view", exc_info=exc)
+        message = f"Cannot draw this view. {_explain(exc)}"
+        self.figure.clear()
+        self.figure.text(
+            0.5, 0.5, message, ha="center", va="center", wrap=True
+        )
+        self._restyle()
+        self.canvas.draw_idle()
+        self.plot_failed.emit(message)
+
     def redraw(self, *_: Any) -> None:
-        """Draw the current view and update its statistics."""
+        """Draw the current view and update its statistics.
+
+        A view that cannot be drawn (malformed geometry, values
+        matplotlib rejects) does not raise: the reason is written
+        on the plot and sent with ``plot_failed``.
+        """
         if self.loaded is None or not self.view_box.currentText():
             return
         model = self.loaded.model
         view = self.view_box.currentText()
         index = self.slider.value()
-        auto = self.auto_range.isChecked()
-        if auto:
+        if self.auto_range.isChecked():
             vmin, vmax = figures.color_range(model)
         else:
             vmin, vmax = self.vmin.value(), self.vmax.value()
-        figures.draw(
-            self.figure,
-            model,
-            view,
-            index,
-            cmap=self.cmap_box.currentText(),
-            vmin=vmin,
-            vmax=vmax,
-            show_stations=self.stations_box.isChecked(),
-            max_depth=self.depth.value() or None,
-            fit=self.fit_box.isChecked(),
-        )
-        label = figures.position_label(model, view, index)
+            if vmax <= vmin:
+                # An empty or reversed range has no colours; keep
+                # the lower limit the user is typing.
+                vmax = vmin + self.vmax.singleStep()
+        try:
+            figures.draw(
+                self.figure,
+                model,
+                view,
+                index,
+                cmap=self.cmap_box.currentText(),
+                vmin=vmin,
+                vmax=vmax,
+                show_stations=self.stations_box.isChecked(),
+                max_depth=self.depth.value() or None,
+                fit=self.fit_box.isChecked(),
+            )
+            label = figures.position_label(model, view, index)
+            values = figures.view_values(model, view, index)
+        except Exception as exc:  # reported on the plot
+            self._plot_error(exc)
+            return
+        self._restyle()
         self.position.setText(label)
         self.stats.set_view(
             f"{view}{', ' + label if label else ''}",
-            figures.view_values(model, view, index),
+            values,
             vmin,
             vmax,
         )
@@ -673,18 +1079,20 @@ class ModelView(QWidget):
 
 # -------------------------------------------------------- welcome page
 class _Welcome(QWidget):
-    """First page: logo, actions, samples and recent files."""
+    """Start page: logo, actions, samples and recent files."""
 
     def __init__(self, window: StudioWindow) -> None:
         super().__init__()
         self.setObjectName("Page")
         card, lay = _card()
-        card.setMaximumWidth(620)
+        card.setFixedWidth(600)
+        lay.setContentsMargins(28, 24, 28, 20)
+        lay.setSpacing(8)
         logo = QLabel()
-        logo.setPixmap(logo_icon().pixmap(QSize(96, 96)))
+        logo.setPixmap(logo_icon().pixmap(QSize(84, 84)))
         logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lay.addWidget(logo)
-        title = _label("PCSF Studio", "Title")
+        title = _label("PCSF Studio", "Hero")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lay.addWidget(title)
         sub = _label(
@@ -696,8 +1104,9 @@ class _Welcome(QWidget):
         )
         sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lay.addWidget(sub)
-        lay.addSpacing(8)
+        lay.addSpacing(10)
         row = QHBoxLayout()
+        row.setSpacing(8)
         row.addStretch(1)
         open_btn = QPushButton("Open file...")
         open_btn.setObjectName("Primary")
@@ -707,24 +1116,25 @@ class _Welcome(QWidget):
         sample_btn = QPushButton("Try a sample")
         sample_btn.setMenu(window.samples_menu)
         for b in (open_btn, folder_btn, sample_btn):
+            b.setCursor(Qt.CursorShape.PointingHandCursor)
             row.addWidget(b)
         row.addStretch(1)
         lay.addLayout(row)
-        lay.addSpacing(8)
+        lay.addSpacing(12)
+        lay.addWidget(_rule())
+        lay.addSpacing(4)
         lay.addWidget(_label("RECENT", "Section"))
         self.recent = QListWidget()
         self.recent.setObjectName("Recent")
-        self.recent.setMaximumHeight(190)
+        self.recent.setMinimumHeight(96)
+        self.recent.setMaximumHeight(210)
         self.recent.setTextElideMode(Qt.TextElideMode.ElideMiddle)
         self.recent.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff
         )
         self.recent.setUniformItemSizes(True)
-        self.recent.itemActivated.connect(
-            lambda item: window.open(
-                item.data(Qt.ItemDataRole.UserRole)
-            )
-        )
+        self.recent.itemActivated.connect(self._activated)
+        self._window = window
         lay.addWidget(self.recent)
         hint = _label(
             "Or drop a file or a run folder on this window.", "Muted"
@@ -734,14 +1144,25 @@ class _Welcome(QWidget):
         ver = _label(f"pcsf {__version__}", "Muted")
         ver.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lay.addWidget(ver)
+
+        # The card is centred in a page that scrolls when the
+        # window is smaller than the card.
+        page = QWidget()
+        grid = QGridLayout(page)
+        grid.setContentsMargins(16, 16, 16, 16)
+        grid.setRowStretch(0, 1)
+        grid.setRowStretch(2, 2)
+        grid.setColumnStretch(0, 1)
+        grid.setColumnStretch(2, 1)
+        grid.addWidget(card, 1, 1)
         outer = QVBoxLayout(self)
-        outer.addStretch(1)
-        h = QHBoxLayout()
-        h.addStretch(1)
-        h.addWidget(card)
-        h.addStretch(1)
-        outer.addLayout(h)
-        outer.addStretch(2)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.addWidget(_scroll(page, "both"))
+
+    def _activated(self, item: QListWidgetItem) -> None:
+        path = item.data(Qt.ItemDataRole.UserRole)
+        if path:  # the "no recent files" line carries no path
+            self._window.open(path)
 
     def set_recent(self, paths: list[str]) -> None:
         self.recent.clear()
@@ -751,7 +1172,9 @@ class _Welcome(QWidget):
             item.setData(Qt.ItemDataRole.UserRole, p)
             self.recent.addItem(item)
         if not paths:
-            self.recent.addItem("No recent files")
+            item = QListWidgetItem("No recent files")
+            item.setFlags(Qt.ItemFlag.NoItemFlags)
+            self.recent.addItem(item)
 
 
 # ------------------------------------------------------- main window
@@ -763,24 +1186,47 @@ class StudioWindow(QMainWindow):
     path : path-like, optional
         File or run folder opened at start.
     settings : QSettings, optional
-        Where recent files are kept; the user settings of
+        Where the recent files, the theme, the window size and the
+        panel layout are kept; the user settings of
         ``earthai-tech/PCSF Studio`` by default.
+    theme : {"system", "light", "dark"}, optional
+        Theme to start with; the one kept in *settings* by
+        default, ``"system"`` when there is none.
+
+    Attributes
+    ----------
+    view : ModelView
+        The model page.
+    theme_name : str
+        Theme chosen, one of
+        :data:`~pcsf.studio.style.THEME_NAMES`.
+    theme : Theme
+        Colours in use (``"system"`` resolved).
+
+    Raises
+    ------
+    ValueError
+        If *theme* is not a theme name.
     """
 
     def __init__(
-        self, path: Any = None, settings: QSettings | None = None
+        self,
+        path: Any = None,
+        settings: QSettings | None = None,
+        theme: str | None = None,
     ) -> None:
         super().__init__()
         self.setWindowTitle("PCSF Studio")
         self.setWindowIcon(logo_icon())
-        self.resize(1400, 860)
         self.setAcceptDrops(True)
-        self.setStyleSheet(STYLE_SHEET)
         self.settings = settings or QSettings(
             "earthai-tech", "PCSF Studio"
         )
+        self.theme_name = "system"
+        self.theme: Theme = LIGHT
         self.samples_menu = self._samples_menu()
         self.view = ModelView()
+        self.view.plot_failed.connect(self._status)
         self.welcome = _Welcome(self)
         self.pages = QStackedWidget()
         self.pages.addWidget(self.welcome)
@@ -789,9 +1235,132 @@ class StudioWindow(QMainWindow):
         self._toolbar()
         self._menus()
         self._refresh_recent()
-        self.statusBar().showMessage("Ready")
+        self.statusBar().addPermanentWidget(
+            _label(f"pcsf {__version__}", "Muted")
+        )
+        self._status("Ready")
+        if theme is None:
+            theme = str(self.settings.value("theme", "system"))
+            if theme.lower() not in THEME_NAMES:
+                theme = "system"
+        self.set_theme(theme, remember=False)
+        hints = QGuiApplication.styleHints()
+        if hasattr(hints, "colorSchemeChanged"):
+            hints.colorSchemeChanged.connect(self._system_changed)
+        self._restore_layout()
         if path is not None:
             self.open(path)
+
+    # ------------------------------------------------- layout
+    def _screen_area(self) -> QRect | None:
+        screen = self.screen() or QGuiApplication.primaryScreen()
+        return None if screen is None else screen.availableGeometry()
+
+    def place_default(self) -> None:
+        """Give the window its default size, centred on the screen.
+
+        The size is :data:`DEFAULT_SIZE`, reduced to
+        :data:`SCREEN_SHARE` of the available screen (without the
+        task bar) when the screen is smaller, so the window never
+        covers the whole desktop.
+        """
+        area = self._screen_area()
+        if area is None:  # no screen (some offscreen platforms)
+            self.resize(*DEFAULT_SIZE)
+            return
+        w = min(DEFAULT_SIZE[0], int(area.width() * SCREEN_SHARE))
+        h = min(DEFAULT_SIZE[1], int(area.height() * SCREEN_SHARE))
+        self.resize(w, h)
+        self.move(
+            area.x() + (area.width() - w) // 2,
+            area.y() + (area.height() - h) // 2,
+        )
+
+    def _restore_layout(self) -> None:
+        self.place_default()
+        s = self.settings
+        geometry = s.value("geometry")
+        if isinstance(geometry, QByteArray) and not geometry.isEmpty():
+            self.restoreGeometry(geometry)
+            # A size kept from a larger or unplugged screen must
+            # not leave the window out of reach.
+            frame = self.frameGeometry()
+            area = self._screen_area()
+            visible = any(
+                sc.availableGeometry().intersects(frame)
+                for sc in QGuiApplication.screens()
+            )
+            too_big = area is not None and (
+                frame.width() > area.width()
+                or frame.height() > area.height()
+            )
+            if not visible or (too_big and not self.isMaximized()):
+                self.place_default()
+        split = s.value("split")
+        if isinstance(split, QByteArray) and not split.isEmpty():
+            self.view.split.restoreState(split)
+        for key, act in (
+            ("inspector", self.inspector_act),
+            ("statistics", self.stats_act),
+        ):
+            shown = str(s.value(key, "true")).lower() != "false"
+            act.setChecked(shown)
+
+    def closeEvent(self, event: Any) -> None:
+        s = self.settings
+        s.setValue("geometry", self.saveGeometry())
+        s.setValue("split", self.view.split.saveState())
+        s.setValue("inspector", self.inspector_act.isChecked())
+        s.setValue("statistics", self.stats_act.isChecked())
+        super().closeEvent(event)
+
+    def _status(self, text: str) -> None:
+        self.statusBar().showMessage(text)
+
+    # -------------------------------------------------- theme
+    def set_theme(self, name: str, remember: bool = True) -> None:
+        """Switch the theme of the window.
+
+        Parameters
+        ----------
+        name : {"system", "light", "dark"}
+            ``"system"`` follows the colour scheme of the desktop,
+            also when it changes while the window is open.
+        remember : bool, default True
+            Keep the choice in the settings for the next session.
+
+        Raises
+        ------
+        ValueError
+            If *name* is not a theme name.
+
+        Notes
+        -----
+        The palette of the application is set as well, so that
+        dialogs and menus follow. The window is meant to be the
+        only one of its application; embed :class:`ModelView` to
+        leave the palette of a host application alone.
+        """
+        theme = get_theme(name, system_is_dark())
+        self.theme_name = str(name).lower()
+        self.theme = theme
+        app = QApplication.instance()
+        if app is not None:
+            app.setPalette(theme_palette(theme))
+        self.setStyleSheet(style_sheet(theme))
+        self.view.set_theme(theme)
+        self.theme_button.setIcon(_contrast_icon(theme.ink))
+        self.theme_actions[self.theme_name].setChecked(True)
+        if remember:
+            self.settings.setValue("theme", self.theme_name)
+
+    def toggle_theme(self) -> None:
+        """Switch between the light and the dark theme."""
+        self.set_theme("light" if self.theme.dark else "dark")
+
+    def _system_changed(self, *_: Any) -> None:
+        if self.theme_name == "system":
+            self.set_theme("system", remember=False)
 
     # ------------------------------------------------ actions
     def _action(
@@ -825,12 +1394,51 @@ class StudioWindow(QMainWindow):
             menu.addAction(act)
         return menu
 
+    def _menu_button(
+        self, text: str, menu: QMenu, name: str = ""
+    ) -> QToolButton:
+        button = QToolButton()
+        button.setText(text)
+        if name:
+            button.setObjectName(name)
+        button.setMenu(menu)
+        button.setPopupMode(
+            QToolButton.ToolButtonPopupMode.InstantPopup
+        )
+        return button
+
     def _toolbar(self) -> None:
         bar = QToolBar("Main")
         bar.setObjectName("MainBar")
         bar.setMovable(False)
         bar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
+        # Without this, a right click offers to hide the toolbar.
+        bar.setContextMenuPolicy(
+            Qt.ContextMenuPolicy.PreventContextMenu
+        )
         self.addToolBar(bar)
+
+        # Far left: the logo, which leads to the start page.
+        self.home_act = self._action(
+            "Start page",
+            self.show_welcome,
+            "Ctrl+Home",
+            tip="Back to the start page (Ctrl+Home)",
+        )
+        brand = QToolButton()
+        brand.setObjectName("Brand")
+        brand.setIcon(logo_icon())
+        brand.setIconSize(QSize(24, 24))
+        brand.setText(" PCSF Studio")
+        brand.setToolButtonStyle(
+            Qt.ToolButtonStyle.ToolButtonTextBesideIcon
+        )
+        brand.setToolTip(self.home_act.toolTip())
+        brand.clicked.connect(self.show_welcome)
+        self.brand_button = brand
+        bar.addWidget(brand)
+        bar.addSeparator()
+
         self.open_act = self._action(
             "Open",
             self.open_file,
@@ -845,13 +1453,7 @@ class StudioWindow(QMainWindow):
         )
         bar.addAction(self.open_act)
         bar.addAction(self.folder_act)
-        samples = QToolButton()
-        samples.setText("Samples")
-        samples.setMenu(self.samples_menu)
-        samples.setPopupMode(
-            QToolButton.ToolButtonPopupMode.InstantPopup
-        )
-        bar.addWidget(samples)
+        bar.addWidget(self._menu_button("Samples", self.samples_menu))
         bar.addSeparator()
         self.save_act = self._action(
             "Save as",
@@ -876,28 +1478,58 @@ class StudioWindow(QMainWindow):
         )
         for act in (self.fig_act, self.cells_act, self.stations_act):
             self.export_menu.addAction(act)
-        export = QToolButton()
-        export.setText("Export")
-        export.setMenu(self.export_menu)
-        export.setPopupMode(
-            QToolButton.ToolButtonPopupMode.InstantPopup
+        self.export_button = self._menu_button(
+            "Export", self.export_menu
         )
-        self.export_button = export
-        export.setEnabled(False)
-        bar.addWidget(export)
-        self.home_act = self._action(
-            "Start page",
-            self.show_welcome,
-            tip="Back to the start page",
+        self.export_button.setEnabled(False)
+        bar.addWidget(self.export_button)
+        self.reload_act = self._action(
+            "Reload",
+            self.reload,
+            "F5",
+            False,
+            "Read the model again from disk (F5)",
         )
-        bar.addSeparator()
-        bar.addAction(self.home_act)
+        bar.addAction(self.reload_act)
 
         spacer = QWidget()
         spacer.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
         )
         bar.addWidget(spacer)
+
+        # Far right: theme, then help behind a plain "?".
+        self.theme_menu = QMenu("Theme", self)
+        group = QActionGroup(self)
+        self.theme_actions: dict[str, QAction] = {}
+        for name, text in (
+            ("system", "Follow the system"),
+            ("light", "Light"),
+            ("dark", "Dark"),
+        ):
+            act = self._action(
+                text, lambda _=False, n=name: self.set_theme(n)
+            )
+            act.setCheckable(True)
+            group.addAction(act)
+            self.theme_actions[name] = act
+            self.theme_menu.addAction(act)
+        self.theme_menu.addSeparator()
+        self.theme_menu.addAction(
+            self._action(
+                "Switch light / dark", self.toggle_theme, "Ctrl+T"
+            )
+        )
+        self.theme_button = self._menu_button(
+            "", self.theme_menu, "Round"
+        )
+        self.theme_button.setToolButtonStyle(
+            Qt.ToolButtonStyle.ToolButtonIconOnly
+        )
+        self.theme_button.setIconSize(QSize(18, 18))
+        self.theme_button.setToolTip("Theme: light, dark or system")
+        bar.addWidget(self.theme_button)
+
         self.help_menu = QMenu("Help", self)
         self.help_menu.addAction(
             self._action("About PCSF Studio", self._about)
@@ -914,26 +1546,17 @@ class StudioWindow(QMainWindow):
                 "Format specification", lambda: self._link(SPEC_URL)
             )
         )
-        helpb = QToolButton()
-        helpb.setObjectName("HelpButton")
-        helpb.setIcon(logo_icon())
-        helpb.setIconSize(QSize(22, 22))
-        helpb.setText(" ?")
-        helpb.setToolTip("Help and about PCSF Studio")
-        helpb.setToolButtonStyle(
-            Qt.ToolButtonStyle.ToolButtonTextBesideIcon
+        self.help_button = self._menu_button(
+            "?", self.help_menu, "Round"
         )
-        helpb.setMenu(self.help_menu)
-        helpb.setPopupMode(
-            QToolButton.ToolButtonPopupMode.InstantPopup
-        )
-        self.help_button = helpb
-        bar.addWidget(helpb)
+        self.help_button.setToolTip("Help and about PCSF Studio")
+        bar.addWidget(self.help_button)
         self._model_actions = [
             self.save_act,
             self.fig_act,
             self.cells_act,
             self.stations_act,
+            self.reload_act,
         ]
 
     def _menus(self) -> None:
@@ -942,6 +1565,7 @@ class StudioWindow(QMainWindow):
             file_menu.addAction(act)
         file_menu.addMenu(self.samples_menu)
         self.recent_menu = file_menu.addMenu("Recent")
+        file_menu.addAction(self.reload_act)
         file_menu.addSeparator()
         file_menu.addAction(self.save_act)
         file_menu.addMenu(self.export_menu)
@@ -951,6 +1575,28 @@ class StudioWindow(QMainWindow):
                 "Quit", self.close, QKeySequence.StandardKey.Quit
             )
         )
+
+        view_menu = self.menuBar().addMenu("&View")
+        view_menu.addAction(self.home_act)
+        view_menu.addSeparator()
+        self.inspector_act = QAction("Inspector", self)
+        self.stats_act = QAction("Statistics", self)
+        for act, key, panel in (
+            (self.inspector_act, "Ctrl+1", self.view.tabs),
+            (self.stats_act, "Ctrl+2", self.view.stats),
+        ):
+            act.setShortcut(QKeySequence(key))
+            act.setCheckable(True)
+            act.setChecked(True)
+            # toggled, not triggered: it also fires when the
+            # layout of the last session is restored
+            act.toggled.connect(panel.setVisible)
+            view_menu.addAction(act)
+        view_menu.addSeparator()
+        view_menu.addMenu(self.theme_menu)
+        view_menu.addAction(
+            self._action("Reset window size", self.place_default)
+        )
         self.menuBar().addMenu(self.help_menu)
 
     # ------------------------------------------------- recent
@@ -958,13 +1604,18 @@ class StudioWindow(QMainWindow):
         value = self.settings.value("recent", [])
         if isinstance(value, str):
             value = [value]
-        return [p for p in (value or []) if Path(p).exists()]
+        return [p for p in (value or []) if p and Path(p).exists()]
 
     def _remember(self, path: Path) -> None:
         items = [str(path)] + [
             p for p in self._recent() if p != str(path)
         ]
         self.settings.setValue("recent", items[:MAX_RECENT])
+        self._refresh_recent()
+
+    def clear_recent(self) -> None:
+        """Forget the recent files."""
+        self.settings.setValue("recent", [])
         self._refresh_recent()
 
     def _refresh_recent(self) -> None:
@@ -975,9 +1626,33 @@ class StudioWindow(QMainWindow):
             act = QAction(p, self)
             act.triggered.connect(lambda _=False, q=p: self.open(q))
             self.recent_menu.addAction(act)
+        if recent:
+            self.recent_menu.addSeparator()
+            self.recent_menu.addAction(
+                self._action("Clear the list", self.clear_recent)
+            )
         self.recent_menu.setEnabled(bool(recent))
 
     # --------------------------------------------------- open
+    def _fail(
+        self, title: str, subject: str, exc: BaseException
+    ) -> None:
+        """Show an error: what failed, why, and the traceback."""
+        logger.warning("%s: %s", title, subject, exc_info=exc)
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Icon.Critical)
+        box.setWindowTitle(title)
+        box.setText(subject)
+        box.setInformativeText(_explain(exc))
+        box.setDetailedText(
+            "".join(
+                traceback.format_exception(
+                    type(exc), exc, exc.__traceback__
+                )
+            )
+        )
+        box.exec()
+
     def open(self, path: Any) -> bool:
         """Open a file or run folder and show it.
 
@@ -989,21 +1664,31 @@ class StudioWindow(QMainWindow):
         Returns
         -------
         bool
-            True when the model was opened; on failure the error
-            is shown in a message box and False is returned.
+            True when the model was opened. On failure a dialog
+            gives the reason (with the traceback under "Show
+            details"), the model shown before stays, and False is
+            returned; an empty *path* returns False silently.
         """
+        if path is None or not str(path):
+            return False
+        error: Exception | None = None
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        self._status(f"Opening {path} ...")
         try:
             loaded = open_source(path)
+            self.view.set_model(loaded)
         except Exception as exc:  # shown to the user, not hidden
-            QMessageBox.critical(
-                self,
-                "Cannot open",
-                f"{Path(path).name}\n\n{type(exc).__name__}: {exc}",
-            )
+            error = exc
+        finally:
+            QApplication.restoreOverrideCursor()
+        if error is not None:
+            self._status("Cannot open the file")
+            self._fail("Cannot open", Path(path).name, error)
+            # A recent file that vanished leaves the lists.
+            self._refresh_recent()
             return False
-        self.view.set_model(loaded)
         self.pages.setCurrentWidget(self.view)
-        self.setWindowTitle(f"PCSF Studio - {loaded.title}")
+        self.setWindowTitle(f"{loaded.title} - PCSF Studio")
         for act in self._model_actions:
             act.setEnabled(True)
         self.export_button.setEnabled(True)
@@ -1016,16 +1701,21 @@ class StudioWindow(QMainWindow):
             if loaded.warnings
             else ""
         )
-        self.statusBar().showMessage(
+        self._status(
             f"{loaded.path}   {loaded.kind} → {loaded.model.kind}"
             f"{note}"
         )
         return True
 
+    def reload(self) -> None:
+        """Read the model shown again from disk."""
+        if self.view.loaded is not None:
+            self.open(self.view.loaded.path)
+
     def open_file(self) -> None:
         """Ask for a file and open it."""
         path, _ = QFileDialog.getOpenFileName(
-            self, "Open file", "", _OPEN_FILTER
+            self, "Open file", self._last_folder(), _OPEN_FILTER
         )
         if path:
             self.open(path)
@@ -1033,33 +1723,56 @@ class StudioWindow(QMainWindow):
     def open_folder(self) -> None:
         """Ask for a run folder and open it."""
         path = QFileDialog.getExistingDirectory(
-            self, "Open run folder"
+            self, "Open run folder", self._last_folder()
         )
         if path:
             self.open(path)
+
+    def _last_folder(self) -> str:
+        """Folder of the most recent file, to start dialogs in."""
+        recent = self._recent()
+        return str(Path(recent[0]).parent) if recent else ""
 
     def show_welcome(self) -> None:
         """Show the start page."""
         self._refresh_recent()
         self.pages.setCurrentWidget(self.welcome)
 
+    @staticmethod
+    def _local_files(event: Any) -> list[str]:
+        data = event.mimeData()
+        if not data.hasUrls():
+            return []
+        return [
+            u.toLocalFile() for u in data.urls() if u.isLocalFile()
+        ]
+
     def dragEnterEvent(self, event: Any) -> None:
-        if event.mimeData().hasUrls():
+        if self._local_files(event):
             event.acceptProposedAction()
 
     def dropEvent(self, event: Any) -> None:
-        urls = event.mimeData().urls()
-        if urls:
-            self.open(urls[0].toLocalFile())
+        files = self._local_files(event)
+        if not files:
+            return
+        event.acceptProposedAction()
+        if self.open(files[0]) and len(files) > 1:
+            self._status(
+                f"Opened {Path(files[0]).name}, the first of "
+                f"{len(files)} dropped items"
+            )
 
     # ------------------------------------------------- export
     def _target(
         self, title: str, suffix: str, filt: str
     ) -> Path | None:
         loaded = self.view.loaded
-        stem = loaded.path.name.split(".")[0] if loaded else "model"
+        if loaded is None:
+            return None
+        stem = loaded.path.name.split(".")[0] or "model"
+        start = Path(self._last_folder()) / f"{stem}{suffix}"
         path, _ = QFileDialog.getSaveFileName(
-            self, title, f"{stem}{suffix}", filt
+            self, title, str(start), filt
         )
         return Path(path) if path else None
 
@@ -1079,16 +1792,16 @@ class StudioWindow(QMainWindow):
             "PNG (*.png);;SVG (*.svg);;PDF (*.pdf)",
         )
         if dst is not None:
-            self._run(
-                lambda: self.view.figure.savefig(dst, dpi=200), dst
-            )
+            self._run(lambda: self.view.save_figure(dst), dst)
 
     def _export_cells(self) -> None:
         dst = self._target("Export cells", "_cells.csv", "CSV (*.csv)")
         if dst is not None:
-            header, table = summary.cell_table(self.view.loaded.model)
             self._run(
-                lambda: summary.write_csv(dst, header, table), dst
+                lambda: summary.write_csv(
+                    dst, *summary.cell_table(self.view.loaded.model)
+                ),
+                dst,
             )
 
     def _export_stations(self) -> None:
@@ -1096,36 +1809,59 @@ class StudioWindow(QMainWindow):
             "Export stations", "_stations.csv", "CSV (*.csv)"
         )
         if dst is not None:
-            header, rows = summary.station_rows(self.view.loaded.model)
             self._run(
-                lambda: summary.write_csv(dst, header, rows), dst
+                lambda: summary.write_csv(
+                    dst, *summary.station_rows(self.view.loaded.model)
+                ),
+                dst,
             )
 
-    def _run(self, job: Any, dst: Path) -> None:
+    def _run(self, job: Any, dst: Path) -> bool:
+        """Run a writing job; report its failure in a dialog."""
+        error: Exception | None = None
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
             job()
         except Exception as exc:  # shown to the user, not hidden
-            QMessageBox.critical(
-                self,
-                "Cannot write",
-                f"{dst}\n\n{type(exc).__name__}: {exc}",
-            )
-            return
-        self.statusBar().showMessage(f"Wrote {dst}")
+            error = exc
+        finally:
+            QApplication.restoreOverrideCursor()
+        if error is not None:
+            self._fail("Cannot write", str(dst), error)
+            return False
+        self._status(f"Wrote {dst}")
+        return True
 
     # --------------------------------------------------- help
     def _link(self, url: str) -> None:
         QDesktopServices.openUrl(QUrl(url))
 
     def _shortcuts(self) -> None:
-        QMessageBox.information(
-            self,
-            "Keyboard shortcuts",
-            "Ctrl+O\tOpen file\nCtrl+Shift+O\tOpen run folder\n"
-            "Ctrl+Shift+S\tSave as\nCtrl+E\tExport figure\n"
-            "F1\tThis list\nCtrl+Q\tQuit\n\n"
-            "Drop a file or a folder on the window to open it.",
+        rows = (
+            ("Ctrl+O", "Open file"),
+            ("Ctrl+Shift+O", "Open run folder"),
+            ("F5", "Reload the model from disk"),
+            ("Ctrl+Shift+S", "Save as"),
+            ("Ctrl+E", "Export figure"),
+            ("Ctrl+Home", "Start page"),
+            ("Ctrl+1 / Ctrl+2", "Show or hide inspector / statistics"),
+            ("Ctrl+T", "Switch light / dark theme"),
+            ("F1", "This list"),
+            ("Ctrl+Q", "Quit"),
         )
+        body = "".join(
+            f"<tr><td><b>{key}</b>&nbsp;&nbsp;&nbsp;</td>"
+            f"<td>{what}</td></tr>"
+            for key, what in rows
+        )
+        box = QMessageBox(self)
+        box.setWindowTitle("Keyboard shortcuts")
+        box.setTextFormat(Qt.TextFormat.RichText)
+        box.setText(
+            f"<table cellspacing='4'>{body}</table><br>"
+            "Drop a file or a folder on the window to open it."
+        )
+        box.exec()
 
     def _about(self) -> None:
         import matplotlib
@@ -1144,13 +1880,37 @@ class StudioWindow(QMainWindow):
         )
         box.exec()
 
+    def report_unexpected(
+        self, kind: type, value: BaseException, tb: Any
+    ) -> None:
+        """Exception hook: show an unexpected error, keep running.
+
+        Meant for ``sys.excepthook``, with its three arguments.
+        ``KeyboardInterrupt`` goes to the default hook.
+        """
+        if issubclass(kind, KeyboardInterrupt):
+            sys.__excepthook__(kind, value, tb)
+            return
+        self._fail(
+            "Unexpected error",
+            "PCSF Studio met an error it did not expect. You can "
+            "keep working; please report it with the details below.",
+            value.with_traceback(tb),
+        )
+
 
 def application() -> QApplication:
-    """Return the running QApplication, creating one if needed."""
+    """Return the running QApplication, creating one if needed.
+
+    A new application uses the Fusion style, which follows the
+    palette of the themes on every platform; an existing one is
+    returned unchanged.
+    """
     app = QApplication.instance()
     if app is None:
         app = QApplication([])
         app.setApplicationName("PCSF Studio")
         app.setOrganizationName("earthai-tech")
+        app.setStyle("Fusion")
         app.setWindowIcon(logo_icon())
     return app

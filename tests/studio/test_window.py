@@ -23,6 +23,30 @@ def app():
     return application()
 
 
+@pytest.fixture
+def settings(tmp_path):
+    """Settings in a file; those of the user are left alone."""
+    from PySide6.QtCore import QSettings
+
+    return QSettings(
+        str(tmp_path / "studio.ini"), QSettings.Format.IniFormat
+    )
+
+
+@pytest.fixture
+def dialogs(monkeypatch):
+    """Dialogs shown, as (title, text) pairs, without waiting."""
+    from PySide6.QtWidgets import QMessageBox
+
+    shown = []
+    monkeypatch.setattr(
+        QMessageBox,
+        "exec",
+        lambda box: shown.append((box.windowTitle(), box.text())),
+    )
+    return shown
+
+
 def test_model_view_tabs_and_views(app):
     view = ModelView()
     seen = []
@@ -54,17 +78,14 @@ def test_model_view_tabs_and_views(app):
     assert view.figure.axes[0].collections[0].get_clim() == (1.0, 3.0)
 
 
-def test_window_open_save_and_errors(app, tmp_path, monkeypatch):
-    from PySide6.QtWidgets import QMessageBox
-
-    errors = []
-    monkeypatch.setattr(
-        QMessageBox, "critical", lambda *a, **k: errors.append(a)
-    )
-    win = StudioWindow()
+def test_window_open_save_and_errors(app, tmp_path, settings, dialogs):
+    win = StudioWindow(settings=settings)
     assert not any(a.isEnabled() for a in win._model_actions)
     assert not win.open(tmp_path / "missing.pcsf")
-    assert errors
+    assert dialogs == [("Cannot open", "missing.pcsf")]
+    # nothing to open is not an error
+    assert not win.open(None) and not win.open("")
+    assert len(dialogs) == 1
     assert win.open(datasets.path("occam2d_tiny"))
     assert all(a.isEnabled() for a in win._model_actions)
     assert "occam2d" in win.windowTitle()
@@ -75,6 +96,14 @@ def test_window_open_save_and_errors(app, tmp_path, monkeypatch):
     )
     assert read(dst).kind == "grid2d"
     assert str(dst) in win.statusBar().currentMessage()
+    # a failed write is reported; a failed open keeps the model
+    assert not win._run(lambda: 1 / 0, dst)
+    assert dialogs[-1][0] == "Cannot write"
+    bad = tmp_path / "bad.pcsm"
+    bad.write_text("not a model")
+    assert not win.open(bad)
+    assert win.view.loaded.kind == "occam2d"
+    assert win.view.title.text() == "occam2d_tiny"
 
 
 def test_self_test_and_report(app, tmp_path):
@@ -125,12 +154,9 @@ def test_header_chips(app):
     assert widgets[0].text() == "grid3d"
 
 
-def test_welcome_recent_and_help(app, tmp_path):
-    from PySide6.QtCore import QSettings
+def test_welcome_recent_and_help(app, tmp_path, settings):
+    from PySide6.QtWidgets import QToolBar
 
-    settings = QSettings(
-        str(tmp_path / "studio.ini"), QSettings.Format.IniFormat
-    )
     win = StudioWindow(settings=settings)
     assert win.pages.currentWidget() is win.welcome
     model = tmp_path / "m.pcsf"
@@ -147,7 +173,21 @@ def test_welcome_recent_and_help(app, tmp_path):
     assert win.welcome.recent.count() == 1
     texts = [a.text() for a in win.help_menu.actions()]
     assert "About PCSF Studio" in texts
-    assert not win.help_button.icon().isNull()
+    # help is a plain "?" at the right; the logo is at the left
+    assert win.help_button.text() == "?"
+    assert win.help_button.icon().isNull()
+    assert not win.brand_button.icon().isNull()
+    bar = win.findChild(QToolBar, "MainBar")
+    order = [bar.widgetForAction(a) for a in bar.actions()]
+    assert order[0] is win.brand_button
+    assert order[-1] is win.help_button
+    win.brand_button.click()
+    assert win.pages.currentWidget() is win.welcome
+    # the placeholder of an empty list opens nothing
+    win.clear_recent()
+    assert win._recent() == []
+    win.welcome._activated(win.welcome.recent.item(0))
+    assert win.pages.currentWidget() is win.welcome
 
 
 def test_logo_renders(app):
@@ -156,3 +196,137 @@ def test_logo_renders(app):
     assert ICON_SVG.exists()
     pixmap = logo_icon().pixmap(32, 32)
     assert not pixmap.isNull() and pixmap.width() == 32
+
+
+def _rgb(colour):
+    return [int(colour[i : i + 2], 16) / 255 for i in (1, 3, 5)]
+
+
+def test_themes(app, settings):
+    from pcsf.studio.style import DARK, LIGHT, get_theme
+
+    win = StudioWindow(settings=settings, theme="light")
+    assert win.theme is LIGHT and win.view.theme is LIGHT
+    win.open(datasets.path("modem_tiny"))
+    win.set_theme("dark")
+    assert win.theme is DARK
+    assert settings.value("theme") == "dark"
+    assert win.theme_actions["dark"].isChecked()
+    assert DARK.panel in win.styleSheet()
+    # the plot and the histogram take the colours of the theme
+    fig = win.view.figure
+    assert fig.get_facecolor()[:3] == pytest.approx(_rgb(DARK.panel))
+    assert fig.axes[0].title.get_color() == DARK.ink
+    hist = win.view.stats.hist_fig
+    assert hist.get_facecolor()[:3] == pytest.approx(_rgb(DARK.panel))
+    win.toggle_theme()
+    assert win.theme is LIGHT
+    # the choice is kept for the next window
+    assert StudioWindow(settings=settings).theme_name == "light"
+    with pytest.raises(ValueError, match="unknown theme"):
+        win.set_theme("sepia")
+    assert get_theme("system", system_dark=True) is DARK
+    assert get_theme("SYSTEM") is LIGHT
+
+
+def test_exported_figure_is_light(app, tmp_path):
+    from matplotlib.image import imread
+
+    from pcsf.studio.style import DARK
+
+    view = ModelView()
+    view.set_theme(DARK)
+    view.set_model(open_source(datasets.path("occam2d_tiny")))
+    dst = tmp_path / "fig.png"
+    view.save_figure(dst, dpi=50)
+    assert imread(dst)[0, 0, :3] == pytest.approx([1.0, 1.0, 1.0])
+    # the figure on screen is dark again afterwards
+    assert view.figure.axes[0].title.get_color() == DARK.ink
+
+
+def test_window_fits_and_centres(app, settings):
+    from pcsf.studio.window import DEFAULT_SIZE, SCREEN_SHARE
+
+    win = StudioWindow(settings=settings)
+    area = win.screen().availableGeometry()
+    assert win.width() <= DEFAULT_SIZE[0]
+    assert win.height() <= DEFAULT_SIZE[1]
+    assert win.width() <= area.width() * SCREEN_SHARE
+    assert win.height() <= area.height() * SCREEN_SHARE
+    centre = win.geometry().center()
+    assert abs(centre.x() - area.center().x()) <= 2
+    assert abs(centre.y() - area.center().y()) <= 2
+    # size and hidden panels come back in the next session
+    win.resize(720, 600)
+    win.stats_act.setChecked(False)
+    win.close()
+    again = StudioWindow(settings=settings)
+    assert (again.width(), again.height()) == (720, 600)
+    assert not again.stats_act.isChecked()
+    assert again.view.stats.isHidden()
+    assert again.inspector_act.isChecked()
+
+
+def test_panels_scroll_instead_of_clipping(app, settings):
+    from PySide6.QtWidgets import QScrollArea
+
+    win = StudioWindow(settings=settings)
+    win.open(datasets.path("modem_tiny"))
+    win.resize(1280, 820)
+    win.show()
+    app.processEvents()
+    areas = win.view.stats.findChildren(QScrollArea)
+    assert len(areas) == 1
+    assert not areas[0].verticalScrollBar().isVisible()
+    # a short window scrolls the statistics
+    win.resize(1280, 420)
+    app.processEvents()
+    assert areas[0].verticalScrollBar().isVisible()
+    # the start page scrolls when smaller than its card
+    win.show_welcome()
+    win.resize(win.minimumSizeHint().width(), 300)
+    app.processEvents()
+    page = win.welcome.findChild(QScrollArea)
+    assert page.verticalScrollBar().isVisible()
+    win.close()
+
+
+def test_view_that_cannot_be_drawn_is_reported(app, monkeypatch):
+    from pcsf.studio import figures
+
+    view = ModelView()
+    view.set_model(open_source(datasets.path("occam2d_tiny")))
+    messages = []
+    view.plot_failed.connect(messages.append)
+
+    def broken(*args, **kwargs):
+        raise ValueError("bad geometry")
+
+    monkeypatch.setattr(figures, "draw", broken)
+    view.redraw()  # does not raise
+    assert len(messages) == 1 and "bad geometry" in messages[0]
+    assert "bad geometry" in view.figure.texts[0].get_text()
+    monkeypatch.undo()
+    view.redraw()
+    assert not view.figure.texts
+    # a reversed colour range is drawn with a valid one
+    view.auto_range.setChecked(False)
+    view.vmin.setValue(3.0)
+    view.vmax.setValue(1.0)
+    lo, hi = view.figure.axes[0].collections[0].get_clim()
+    assert lo == 3.0 and hi > lo
+    assert len(messages) == 1
+
+
+def test_plot_toolbar_icons_follow_theme(app, settings):
+    # matplotlib draws white icons when the toolbar background is
+    # dark; a transparent background counted as dark (regression)
+    from pcsf.studio.style import DARK, LIGHT
+
+    win = StudioWindow(settings=settings, theme="light")
+    for theme, dark in ((LIGHT, False), (DARK, True)):
+        win.set_theme(theme.name)
+        nav = win.view.nav
+        back = nav.palette().color(nav.backgroundRole())
+        assert back.name() == theme.panel
+        assert (back.value() < 128) is dark

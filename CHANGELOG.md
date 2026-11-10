@@ -73,12 +73,27 @@ First release as a standalone package, extracted from pyCSAMT's
   reproduce all of them. `fetch_data.py` downloads and checks the
   data archive (Zenodo, `data_source.json`);
   `tools/make_data_archive.py` assembles it.
-- PCSF Studio, new layout: toolbar with samples and export menus,
-  help menu behind the logo at the far right, start page with recent
+- PCSF Studio, new layout: toolbar with the logo at the far left
+  (it leads to the start page), samples and export menus, and the
+  theme and `?` help menus at the far right; start page with recent
   files, header with status chips (geometry, solver, conformance,
   inversion record), and a statistics panel (whole model and current
   view: cells, air and missing cells, median, 5-95 % range, mean and
   spread of log10 rho, histogram with the colour range).
+- PCSF Studio themes: light, dark, or the one of the desktop
+  (`pcsf.studio.style.Theme`, `LIGHT`, `DARK`, `get_theme`,
+  `style_sheet`; `StudioWindow.set_theme`, `ModelView.set_theme`,
+  `pcsf-studio --theme`). Plots follow the theme on screen and are
+  exported on a white background (`ModelView.save_figure`,
+  `pcsf.studio.figures.restyle`).
+- PCSF Studio window: opens centred, at most 82 % of the available
+  screen; remembers its size, theme and panel layout; panels that
+  do not fit scroll instead of being cut; inspector and statistics
+  can be hidden (View menu); reload (F5).
+- PCSF Studio error handling: a view that cannot be drawn is
+  reported on the plot (`ModelView.plot_failed`), a failed open
+  keeps the model shown before, error dialogs carry the traceback,
+  and unexpected errors are reported instead of ending the program.
 - `pcsf.studio.figures.view_values`, `pcsf.studio.summary.value_stats`.
 - SVG logo (`studio/resources/pcsf-studio.svg`), from which
   `installers/make_icon.py` renders the PNG and ICO icons; the

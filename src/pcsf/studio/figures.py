@@ -57,6 +57,7 @@ __all__ = [
     "draw",
     "n_positions",
     "position_label",
+    "restyle",
     "view_values",
     "views",
 ]
@@ -367,6 +368,71 @@ def _limits(ax, model, view, index, max_depth, fit) -> None:
         span_y = _padded(st.y)
         if span_y is not None:
             ax.set_ylim(*span_y)
+
+
+def restyle(
+    fig: Any,
+    *,
+    ink: str = "#1f2533",
+    background: str = "#ffffff",
+    muted: str | None = None,
+) -> None:
+    """Recolour a drawn figure for a light or dark background.
+
+    Only colours change: the figure and axes backgrounds, the axes
+    lines, ticks, labels and titles, and the station markers. The
+    colour-mapped artists are left as drawn.
+
+    Parameters
+    ----------
+    fig : matplotlib.figure.Figure
+        Figure drawn by :func:`draw` (or any figure).
+    ink : str, default "#1f2533"
+        Colour of the text, the ticks and the station markers.
+    background : str, default "#ffffff"
+        Colour of the figure and of the axes.
+    muted : str, optional
+        Colour of the axes lines; *ink* by default.
+
+    Notes
+    -----
+    Station markers are the lines without a connecting segment
+    (line style ``"None"``); lines with a segment keep their
+    colour.
+
+    Examples
+    --------
+    >>> import matplotlib
+    >>> matplotlib.use("Agg")
+    >>> from matplotlib.figure import Figure
+    >>> from pcsf import datasets
+    >>> from pcsf.studio.sources import open_source
+    >>> from pcsf.studio.figures import draw, restyle
+    >>> fig = Figure()
+    >>> m = open_source(datasets.path("occam2d_tiny")).model
+    >>> ax = draw(fig, m)
+    >>> restyle(fig, ink="#e6e9f2", background="#1b1f2b")
+    >>> ax.title.get_color()
+    '#e6e9f2'
+    """
+    edge = ink if muted is None else muted
+    fig.set_facecolor(background)
+    for ax in fig.axes:
+        ax.set_facecolor(background)
+        for spine in ax.spines.values():
+            spine.set_edgecolor(edge)
+        ax.tick_params(colors=ink, which="both")
+        for text in (ax.title, ax.xaxis.label, ax.yaxis.label):
+            text.set_color(ink)
+        for line in ax.lines:
+            if line.get_linestyle() == "None":
+                line.set_color(ink)
+        legend = ax.get_legend()
+        if legend is not None:
+            for text in legend.get_texts():
+                text.set_color(ink)
+    for text in fig.texts:
+        text.set_color(ink)
 
 
 def _section(ax, x_edges, z_edges, values, norm, cmap):

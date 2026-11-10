@@ -67,8 +67,9 @@ def self_test(report: Any = None) -> int:
 
     Used to check an installed or frozen build: each dataset of
     :mod:`pcsf.datasets` is opened through the Studio, every view is
-    drawn in a :class:`ModelView` and saved as PNG, and the model is
-    written as PCSM and read back.
+    drawn in a :class:`ModelView` with the light and the dark theme
+    and saved as PNG, and the model is written as PCSM and read
+    back.
 
     Parameters
     ----------
@@ -91,6 +92,7 @@ def self_test(report: Any = None) -> int:
     from .. import datasets, read, write
     from . import figures
     from .sources import open_source
+    from .style import DARK, LIGHT
     from .window import ModelView, application, logo_icon
 
     app = application()  # noqa: F841 (kept alive for the widgets)
@@ -114,10 +116,15 @@ def self_test(report: Any = None) -> int:
                 loaded = open_source(datasets.path(name))
                 view = ModelView()
                 view.set_model(loaded)
-                for v in figures.views(loaded.model):
-                    view.view_box.setCurrentText(v)
-                    view.redraw()
-                    view.figure.savefig(Path(tmp) / f"{name}_{v}.png")
+                failures = []
+                view.plot_failed.connect(failures.append)
+                for theme in (LIGHT, DARK):
+                    view.set_theme(theme)
+                    for v in figures.views(loaded.model):
+                        view.view_box.setCurrentText(v)
+                        view.redraw()
+                        view.save_figure(Path(tmp) / f"{name}_{v}.png")
+                assert not failures, failures[0]
                 back = read(
                     write(loaded.model, Path(tmp) / f"{name}.pcsm")
                 )
@@ -142,7 +149,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     ----------
     argv : sequence of str, optional
         Command-line arguments, ``sys.argv[1:]`` by default:
-        an optional file or run folder to open, ``--self-test`` to
+        an optional file or run folder to open, ``--theme`` with
+        ``system``, ``light`` or ``dark``, ``--self-test`` to
         run :func:`self_test` instead of opening a window, and
         ``--report PATH`` for its output.
 
@@ -169,6 +177,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="check the installation without a window",
     )
     p.add_argument("--report", help="write the self-test result here")
+    p.add_argument(
+        "--theme",
+        choices=("system", "light", "dark"),
+        help="theme to start with (default: the last one used)",
+    )
     args = p.parse_args(argv)
     if args.self_test:
         return self_test(args.report)
@@ -176,6 +189,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     from .window import StudioWindow, application
 
     app = application()
-    win = StudioWindow(args.path)
-    win.show()
-    return int(app.exec())
+    win = StudioWindow(args.path, theme=args.theme)
+    # An error in a Qt slot would otherwise end a frozen build
+    # without a word; the window reports it and keeps running.
+    previous = sys.excepthook
+    sys.excepthook = win.report_unexpected
+    try:
+        win.show()
+        return int(app.exec())
+    finally:
+        sys.excepthook = previous
