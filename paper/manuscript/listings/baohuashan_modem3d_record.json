@@ -1,0 +1,49 @@
+{
+ "solver": "ModEM",
+ "solver_version": "ModEM 3D MT, NLCG",
+ "data": {
+  "components": [
+   "ZXY",
+   "ZYX"
+  ],
+  "frequency_range_hz": [
+   10.16,
+   10400.0
+  ],
+  "n_frequencies": 19,
+  "n_stations": 122,
+  "errors": "7-31 % of |Z| (5th-95th percentile), median 13 %",
+  "sign_convention": "exp(+i\\omega t)",
+  "source": "ModEMData_v5_offdiag.dat (off-diagonal impedance); station depth Z below a model top at 224 m a.s.l. (stated only in a comment of the data file)"
+ },
+ "forward": {
+  "dimensionality": "3D",
+  "mesh": "91 x 54 x 44 cells (N x E x Z)"
+ },
+ "regularization": {
+  "type": "ModEM model covariance (smoothing), NLCG",
+  "trade_off": 1.192e-06,
+  "start_model": "prior_v5.rho"
+ },
+ "misfit": {
+  "final_rms": 1.951533,
+  "target_rms": 1.2,
+  "n_iterations": 113,
+  "termination": "stalled"
+ },
+ "reliability": {
+  "method": "Niblett-Bostick depth of the determinant apparent resistivity at the lowest frequency (EDI, 42.1 Hz)",
+  "depth_of_investigation_m": {
+   "18-001": 1350,
+   "18-002": 1373,
+   "18-003": 1467,
+   "...": "118 stations omitted",
+   "34-025A": 694
+  }
+ },
+ "citation": {
+  "authors": "Kouabena, K. A. W., et al.",
+  "year": 2025,
+  "doi": "10.1016/j.oregeorev.2025.106798"
+ }
+}

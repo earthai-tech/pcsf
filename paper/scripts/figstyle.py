@@ -90,6 +90,7 @@ def apply() -> None:
             "savefig.pad_inches": 0.02,
             "figure.dpi": 150,
             "pdf.fonttype": 42,
+            "ps.fonttype": 42,
         }
     )
 
@@ -133,9 +134,44 @@ def _fmt_pow(t: float) -> str:
 
 
 def save(fig, name: str) -> Path:
-    """Save PNG (600 dpi) and PDF versions into Fig/."""
+    """Save PNG (600 dpi) preview, PDF, and editable SVG and EPS.
+
+    SVG keeps text as text (``svg.fonttype = "none"``) so that labels
+    stay editable; PDF and EPS embed TrueType fonts (type 42). Dense
+    cell fields (colour meshes and collections of more than 1000
+    polygons) are rasterized at the figure resolution in the vector
+    files: written as vectors, a model section takes tens of MB in
+    EPS, while axes, labels and annotations stay editable vectors and
+    the values themselves are in the deposited models.
+    """
+    from matplotlib.collections import (
+        PolyCollection,
+        QuadMesh,
+        TriMesh,
+    )
+
+    has_raster = False
+    for ax in fig.axes:
+        for coll in ax.collections:
+            dense = isinstance(coll, (QuadMesh, TriMesh)) or (
+                isinstance(coll, PolyCollection)
+                and len(coll.get_paths()) > 1000
+            )
+            if dense:
+                coll.set_rasterized(True)
+                has_raster = True
     png = FIG / f"{name}.png"
     fig.savefig(png)
     fig.savefig(FIG / f"{name}.pdf")
+    with mpl.rc_context({"svg.fonttype": "none"}):
+        fig.savefig(FIG / f"{name}.svg")
+    # EPS stores images as uncompressed ASCII hex (tens of MB for a
+    # 600 dpi field), so it is written only for pure vector figures;
+    # figures with raster fields keep the editable SVG.
+    eps = FIG / f"{name}.eps"
+    if has_raster:
+        eps.unlink(missing_ok=True)
+    else:
+        fig.savefig(eps)
     plt.close(fig)
     return png

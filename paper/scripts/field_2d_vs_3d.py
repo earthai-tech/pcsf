@@ -111,8 +111,15 @@ def line_samples(m2, m3, to_grid, surf3):
     sdoi = np.array([doi_map.get(str(n), np.nan) for n in snames], float)
     okd = np.isfinite(sdoi)
     doi = np.interp(xs, sx[okd], sdoi[okd])
+    # Ground elevation (m a.s.l.) from the station table of the Occam2D
+    # file, for display in elevation; the comparison itself is made at
+    # depth d below the ground.
+    sz = np.asarray(st.z, float)[order]
+    okz = np.isfinite(sz)
+    elev = np.interp(xs, sx[okz], sz[okz])
     return {"x": xs, "d": ds, "m2": m2v, "m3": m3v, "lon": lon, "lat": lat,
-            "sta_x": sx, "n_matched": int(ok.sum()), "n_sta": len(sx),
+            "sta_x": sx, "sta_z": sz, "elev": elev,
+            "n_matched": int(ok.sum()), "n_sta": len(sx),
             "doi": doi, "inside": D <= doi[None, :]}
 
 
@@ -235,27 +242,39 @@ def fig_sections(samples, clim, rows):
     titles = ["Occam2D (2-D)", "ModEM (3-D), sampled along line",
               r"$\Delta = \log_{10}\rho_{3D} - \log_{10}\rho_{2D}$"]
     ims = [None, None, None]
+    # Sections are drawn in elevation: a sample at depth d below the
+    # ground at distance x lies at H(x) - d, with H the station
+    # topography; the air above H is left blank.
+    # The sampled window ends D_MAX below the ground, so its base
+    # follows the topography; the axes stop at the shallowest base so
+    # that every column is filled down to the lower edge.
+    top = max(samples[l]["elev"].max() for l in LINES) / 1e3 + 0.08
+    bottom = max(samples[l]["elev"].max() for l in LINES) / 1e3 - D_MAX / 1e3
     for i, l in enumerate(LINES):
         s = samples[l]
         xk = s["x"] / 1e3
-        dk = s["d"] / 1e3
+        hk = s["elev"] / 1e3
+        X, Dk = np.meshgrid(xk, s["d"] / 1e3)
+        Y = hk[None, :] - Dk
         for j, (field, cmap, nrm) in enumerate(
                 [(s["m2"], fs.RES_CMAP, norm), (s["m3"], fs.RES_CMAP, norm),
                  (s["m3"] - s["m2"], fs.DIFF_CMAP, dnorm)]):
             ax = fig.add_subplot(gs[i, j])
-            ims[j] = ax.pcolormesh(xk, dk, field, cmap=cmap, norm=nrm,
+            ims[j] = ax.pcolormesh(X, Y, field, cmap=cmap, norm=nrm,
                                    shading="nearest", rasterized=True)
             # depth of investigation: dashed line, veil below it
-            ax.fill_between(xk, s["doi"] / 1e3, D_MAX / 1e3, color="white",
+            ydoi = hk - s["doi"] / 1e3
+            ax.fill_between(xk, ydoi, hk - D_MAX / 1e3, color="white",
                             alpha=0.6, lw=0, zorder=3)
-            ax.plot(xk, s["doi"] / 1e3, ls=(0, (3, 1.5)), color=fs.INK, lw=0.6, zorder=4)
-            ax.set_ylim(D_MAX / 1e3, 0)
+            ax.plot(xk, ydoi, ls=(0, (3, 1.5)), color=fs.INK, lw=0.6, zorder=4)
+            ax.plot(xk, hk, color=fs.INK, lw=0.6, zorder=4)
+            ax.set_ylim(bottom, top)
             ax.set_xlim(xk[0], xk[-1])
-            ax.plot((s["sta_x"] - 0) / 1e3, np.zeros_like(s["sta_x"]), "v", ms=2.2,
+            ax.plot(s["sta_x"] / 1e3, s["sta_z"] / 1e3, "v", ms=2.2,
                     color=fs.INK, clip_on=False, zorder=5, mew=0)
             fs.boxed_spines(ax)
             if j == 0:
-                ax.set_ylabel("Depth (km)")
+                ax.set_ylabel("Elevation (km)")
                 ax.text(0.02, 0.05, l, transform=ax.transAxes, fontweight="bold",
                         fontsize=7, va="bottom",
                         bbox=dict(fc="white", ec="none", alpha=0.8, pad=1.2))

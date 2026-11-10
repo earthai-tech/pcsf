@@ -3,3 +3,13 @@ data/*
 output/
 *.zip
 tools/sources.local.json
+manuscript/notes/
+manuscript/*.aux
+manuscript/*.bbl
+manuscript/*.blg
+manuscript/*.log
+manuscript/*.out
+manuscript/*.lof
+manuscript/*.lot
+manuscript/*.toc
+manuscript/paper.pdf
