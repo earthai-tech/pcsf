@@ -1,0 +1,59 @@
+name: Docs
+
+# Builds the documentation the way Read the Docs does (warnings are
+# errors) and runs the examples of the pages and of the docstrings.
+# Read the Docs publishes the site itself, from .readthedocs.yaml;
+# this workflow only tells a pull request that the build would fail.
+
+on:
+  push:
+    branches: [master, dev]
+    paths:
+      - "docs/**"
+      - "src/**"
+      - "spec/**"
+      - "CHANGELOG.md"
+      - "pyproject.toml"
+      - ".readthedocs.yaml"
+      - ".github/workflows/docs.yml"
+  pull_request:
+    paths:
+      - "docs/**"
+      - "src/**"
+      - "spec/**"
+      - "CHANGELOG.md"
+      - "pyproject.toml"
+      - ".readthedocs.yaml"
+      - ".github/workflows/docs.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: build and examples
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          # the version of .readthedocs.yaml
+          python-version: "3.11"
+          cache: pip
+      # The optional readers are installed as well: the examples of
+      # their docstrings run in the doctest step.
+      - name: Install
+        run: pip install -e ".[docs,algorithms,emc,mare2dem,schema]"
+      - name: Build HTML (warnings are errors)
+        run: sphinx-build -b html -W --keep-going docs docs/_build/html
+      - name: Run the examples
+        run: sphinx-build -b doctest docs docs/_build/doctest
+      - name: Upload the site
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-html
+          path: docs/_build/html
+          retention-days: 7
