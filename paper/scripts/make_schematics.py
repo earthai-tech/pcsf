@@ -67,7 +67,8 @@ def datamodel():
     box(ax, 6.15, 6.6, 6.0, 1.2, "PCSF model\nversion, producing code, unit (ohm m), CRS",
         STD, fs_=7, bold=False)
     kids = [
-        ("Geometry", "kind: grid2d | grid3d |\nmesh_unstructured |\nmultiline\ncoordinates, nodes"),
+        ("Geometry", "kind $\\kappa$: $\\mathsf{G}_2$, $\\mathsf{G}_3$,\n"
+         "$\\mathsf{T}$ or $\\mathsf{L}$\ncells, nodes, coordinates"),
         ("Model", "resistivity (linear)\nnative values + encoding\nuncertainty, sensitivity"),
         ("Stations", "name, x, y, z\nline id\nlongitude, latitude"),
         ("Topography", "per station\nor raster"),

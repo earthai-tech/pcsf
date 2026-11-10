@@ -239,10 +239,14 @@ def figure(rows):
     fmts = [("native", "Native", fs.GREY), ("pcsf", "PCSF", fs.C_BLUE),
             ("pcsm", "PCSM", fs.C_ORANGE), ("pcsmgz", "PCSM.gz", fs.C_RED),
             ("netcdf", "netCDF-4", fs.C_GREEN), ("vtk", "VTK", fs.C_PURPLE)]
+    # Tick labels use the manuscript's symbols of the geometry kinds.
+    symbols = {"grid2d": r"$\mathsf{G}_2$", "grid3d": r"$\mathsf{G}_3$",
+               "mesh": r"$\mathsf{T}$", "multiline": r"$\mathsf{L}$"}
     labels = []
     for r in rows:
         name, kind = r["model"].split(" (")
-        labels.append(kind.rstrip(")"))
+        kind = kind.rstrip(")")
+        labels.append(symbols.get(kind, kind))
     x = np.arange(len(rows))
     w = 0.13
     fig, axes = plt.subplots(1, 3, figsize=(fs.DOUBLE, 0.33 * fs.DOUBLE),
