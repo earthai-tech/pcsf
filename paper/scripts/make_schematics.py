@@ -95,10 +95,10 @@ def datamodel():
 
 def architecture():
     fig, ax = canvas(183, 78, 18.3, 7.8)
-    srcs = ["Occam2D", "ModEM 3-D", "MARE2DEM", "Learned predictor\n(arrays)",
-            "Set of 2-D lines"]
-    adps = ["occam2d_to_pcsf", "modem3d_to_pcsf", "mare2dem_to_pcsf",
-            "grid2d / grid3d /\nmesh_to_pcsf", "build_multiline_pcsf"]
+    srcs = ["Occam2D", "ModEM 3-D", "MARE2DEM", "EMC netCDF",
+            "Learned predictor,\nother codes"]
+    adps = ["occam2d_to_pcsf", "modem_to_pcsf", "mare2dem_to_pcsf",
+            "emc_to_pcsf", "PCSFModel(...),\nplugin adapters"]
     ys = [6.3, 4.95, 3.6, 2.25, 0.9]
     ax.text(1.35, 7.55, "Solver output", ha="center", fontsize=7, fontweight="bold")
     ax.text(4.75, 7.55, "Adapters", ha="center", fontsize=7, fontweight="bold")
@@ -119,8 +119,8 @@ def architecture():
     arrow(ax, (11.15, 5.1), (11.85, 5.1), both=True)
     arrow(ax, (11.15, 3.1), (11.85, 3.1), both=True)
     arrow(ax, (12.9, 4.55), (12.9, 3.65), both=True)
-    cons = ["sample_log10, compare_log10", "point cloud for 3-D viewers",
-            "desktop and web viewers", "independent readers\n(h5py, h5dump)"]
+    cons = ["sample_log10, compare_log10", "conformance suite,\nJSON Schemas",
+            "PCSF Studio, pyCSAMT", "independent readers\n(h5py, h5dump)"]
     for i, c in enumerate(cons):
         y = 6.0 - i * 1.35
         box(ax, 14.6, y, 3.5, 0.95, c, NEU, fs_=6.2)
