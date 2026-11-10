@@ -130,7 +130,7 @@ time series. \citet{Kelbert2020} showed how much of the value of transfer
 functions had been lost to ambiguous orientation, missing coordinates
 and unstated sign conventions, and how a format with explicit metadata
 recovered it. The resistivity model, the next link in the same chain
-(Figure~\ref{fig:datachain}), has had no comparable effort.
+(Figure~\ref{fig:schematics}a), has had no comparable effort.
 
 Inversion codes write models in formats designed around their solvers.
 Occam2D \citep{deGrootHedlin1990} writes $\log_{10}$ resistivity on a
@@ -175,10 +175,21 @@ keep and which lose information. Finally, we apply the format to 2D and
 standard question in MT interpretation \citep{Ledo2005} that requires
 every one of these steps.
 
-\plot{datachain}{width=\textwidth}
-{The EM/MT data chain. Time series and transfer functions have
-community exchange standards; the resistivity model produced by an
-inversion has none. PCSF fills this position.}
+\plot{schematics}{width=\textwidth}
+{The format and its reference implementation. (a) The
+electromagnetic data chain: time series and transfer functions have
+community exchange standards (blue), whereas the resistivity model
+produced by an inversion has none; PCSF fills this position (orange).
+(b) Logical data model, with the symbols of
+equation~\ref{eq:model}: a model has one geometry of a declared kind
+($\Gtwo$, $\Gthree$, $\Mtri$ or $\Lset$), a canonical resistivity
+field with its source values, their encoding and an optional
+uncertainty, a station table, optional topography and an inversion
+record; the same model is written losslessly to the HDF5 (PCSF) or
+the text (PCSM) encoding. (c) Reference implementation: one adapter
+per source converts solver output to the common model, which is
+written to either encoding and used by the sampling and comparison
+functions, the conformance suite, viewers and independent readers.}
 
 \tabl{related}{Existing representations compared with the requirements
 R1--R6 defined in the text. $+$ supported; $\circ$ partly supported or
@@ -388,15 +399,8 @@ record must travel with it (R4). A reader must be able to interpret the
 file with a general-purpose library and the specification alone, and a
 text form must allow inspection and line-by-line comparison (R5).
 Files must carry a version, so that readers detect files they cannot
-interpret (R6). Figure~\ref{fig:datamodel} shows the logical data
+interpret (R6). Figure~\ref{fig:schematics}b shows the logical data
 model that meets these requirements.
-
-\plot{datamodel}{width=\textwidth}
-{Logical data model. A model has one geometry of a declared kind, a
-canonical resistivity field with the source values and their encoding,
-optional uncertainty, a station table, optional topography, and
-metadata that include the inversion record. The same model is written
-to the HDF5 (PCSF) or the text (PCSM) encoding.}
 
 \subsection{Formal definition}
 
@@ -910,7 +914,7 @@ with $B$ replaced by an exact field, measure the accuracy of sampling.
 
 The reference implementation is pcsf, an open-source Python package
 published separately from any inversion or processing library
-(Figure~\ref{fig:architecture}). Its core contains the data classes,
+(Figure~\ref{fig:schematics}c). Its core contains the data classes,
 the HDF5 and text readers and writers, the conformance rules, the
 inversion record with its completeness check, and the functions
 \code{sample\_log10}, \code{compare\_log10} and
@@ -959,12 +963,6 @@ know and still read the rest of the file.
 \State \Return $M$
 \end{algorithmic}
 \end{algorithm}
-
-\plot{architecture}{width=\textwidth}
-{Architecture of the reference implementation. Adapters convert
-solver output and plain arrays to the common model, which is written
-to PCSF or PCSM and used by the sampling and comparison functions,
-viewers and independent readers.}
 
 % =====================================================================
 \section{NUMERICAL TESTS}

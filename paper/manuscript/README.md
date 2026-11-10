@@ -7,7 +7,7 @@ models.*
 |---|---|
 | `paper.tex` | the manuscript (SEG `geophysics` class, `manuscript` option) |
 | `pcsf.bib` | bibliography; entries marked `VERIFY` must be checked against the publisher record |
-| `Fig/` | the 11 figures: PDF (used by LaTeX), PNG preview (600 dpi), editable SVG (text as text) and EPS |
+| `Fig/` | the 9 figures: PDF (used by LaTeX), PNG preview (600 dpi), editable SVG (text as text) and EPS |
 | `listings/` | the inversion record printed in the appendix |
 | `geophysics.cls`, `seg.sty`, `seg.bst` | SEG class and styles (S. Fomel, LaTeX Project Public License 1.3, unmodified) |
 | `update_figures.py` | copies the figures from the reproduction output into `Fig/` |

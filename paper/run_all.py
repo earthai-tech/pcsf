@@ -44,7 +44,7 @@ ANALYSES = [
     ("field_figures.py",
      "figures/field_tongkeng, field_mare2dem, field_baohuashan"),
     ("make_schematics.py",
-     "figures/datachain, datamodel, architecture"),
+     "figures/schematics (data chain, data model, architecture)"),
 ]
 #: Tier 2: rebuild of the models (needs pyCSAMT).
 REBUILD = [("build_field_models.py", "models/*.pcsf, *.pcsm")]
