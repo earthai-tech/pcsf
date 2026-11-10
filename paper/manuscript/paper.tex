@@ -21,7 +21,7 @@
 % tables and figures collected at the end. For a reading copy with
 % figures in the text, compile with \documentclass[paper]{geophysics}.
 % When compiling elsewhere (e.g. Overleaf), upload the Fig/ and
-% listings/ folders together with paper.tex, pcsf.bib and the class files.
+% listings/ folders with paper.tex, pcsf.bib and the class files.
 
 \documentclass[manuscript]{geophysics}
 
@@ -83,30 +83,30 @@ E-mail: etanoyau@gmail.com}
 % =====================================================================
 \begin{abstract}
 Electromagnetic surveys have exchange standards for time series and
-transfer functions, but not for inversion models. Each inversion code
-writes its own format, which readers easily misread. On five real
-models, we measured the
-cost of such misreadings: up to 4.5 decades for a wrong logarithm
-base, 3.1 decades for an unstated depth datum, 2.7 decades for a mesh
-offset, and 0.7 decades for a swapped axis order. We present the
-Portable Common Subsurface Format (PCSF), which stores isotropic
-resistivity on its native 2D, 3D, triangular-mesh or multi-profile
-geometry, together with the source values and their encoding, the
-spatial reference, and a record of how the model was obtained: data,
-errors, solver, regularization, misfit, convergence and depth of
-investigation. We derive the frame transformations, sampling rules and
-uncertainty conversions needed to compare models of different
-geometry, and we test them. Twelve files from Occam2D, ModEM,
-MARE2DEM and synthetic predictors were read bit for bit by three
-readers written without the reference implementation. Three models of
-the EarthScope Earth Model Collaboration passed through PCSF without
-loss, yet one archive file could not be reproduced from its solver
-model, and none records its misfit or licence. Applied to
-2D and 3D inversions of the Baohuashan porphyry Cu--Mo survey, the
-comparison registered the models to within 4.2~m and showed that,
-within the depth of investigation, they agree near the surface but
-differ by 0.80 decades on average, mainly where the 2D models contain
-resistive bodies that the 3D model does not support.
+transfer functions but not for inversion models: each inversion code
+writes its own format, and readers easily misread it. On five real
+models, such misreadings caused errors of up to 4.5 decades for a
+wrong logarithm base, 3.1 decades for an unstated depth datum, 2.7
+decades for a mesh offset and 0.7 decades for a swapped axis order. We
+present the Portable Common Subsurface Format (PCSF), which stores
+isotropic resistivity on its native two-dimensional,
+three-dimensional, triangular-mesh or multi-profile geometry. Each
+file also keeps the source values and their encoding, the spatial
+reference, and a record of how the model was obtained: data, errors,
+solver, regularization, misfit, convergence and depth of
+investigation. We derive and test the frame transformations, sampling
+rules and uncertainty conversions needed to compare models of
+different geometry. Three readers written without the reference
+implementation read twelve files from Occam2D, ModEM, MARE2DEM and
+synthetic predictors bit for bit. Three models of the EarthScope Earth
+Model Collaboration passed through PCSF without loss; one archive
+file, however, could not be reproduced from its solver model, and
+none records its misfit or licence. Applied to 2D and 3D inversions of
+the Baohuashan porphyry Cu--Mo survey, the comparison registered the
+models to within 4.2~m. Within the depth of investigation, the models
+agree near the surface but differ by 0.80 decades on average, mainly
+where the 2D models contain resistive bodies that the 3D model does
+not support.
 \end{abstract}
 
 % =====================================================================
@@ -116,11 +116,10 @@ The resistivity model is the main product of a magnetotelluric (MT) or
 controlled-source electromagnetic (EM) survey. It is the object that
 geologists interpret, that later studies compare with seismic and
 drilling results, and that new inversions use as a starting point or a
-constraint. Its value outside the group that produced it depends on
-whether others can read it correctly, which is the practical meaning of
-the FAIR principles \citep{Wilkinson2016} and of reproducible
-computational research \citep{Sandve2013} when they are applied to an
-inversion result.
+constraint. Outside the group that produced it, the model is useful
+only if others can read it correctly; for an inversion result, this is
+the practical meaning of the FAIR principles \citep{Wilkinson2016} and
+of reproducible computational research \citep{Sandve2013}.
 
 The data that enter an inversion have reached this point. SEG-Y serves
 seismic data \citep{Hagelund2017}. For EM and MT, the SEG EDI standard
@@ -159,21 +158,21 @@ common convention for tensor and octree meshes, and SimPEG
 \citep{Cockett2015} and MTpy \citep{Krieger2014} read and write several
 solver formats. Table~\ref{tbl:related} compares these options with
 the requirements we set out below. Each covers some requirements, but
-none was designed to carry a model from any of the common inversion
-codes together with the information needed to interpret it.
+none was designed to carry a model from the common inversion codes
+with the information needed to interpret it.
 
 This paper describes the Portable Common Subsurface Format (PCSF) and
-its supporting algorithms. We first document, with measurements, the
-ambiguities met when reading the native files of three inversion codes.
-From them we derive the information a model file must contain, and a
-data model with binary and text encodings that holds it. We then give
-the frame transformations, sampling rules and uncertainty conversions
-needed to compare models of different geometry, test them for fidelity,
-accuracy, independent readability and cost, and state which conversions
-keep and which lose information. Finally, we apply the format to 2D and
-3D inversions of the same audio-magnetotelluric (AMT) survey, a
-standard question in MT interpretation \citep{Ledo2005} that requires
-every one of these steps.
+its supporting algorithms. We measure the ambiguities met when reading
+the native files of three inversion codes, derive from them the
+information a model file must contain, and define a data model with
+binary and text encodings that holds it. We then give the frame
+transformations, sampling rules and uncertainty conversions needed to
+compare models of different geometry, test them for fidelity,
+accuracy, independent readability and cost, and state which
+conversions lose information. The comparison of 2D and 3D inversions
+of one audio-magnetotelluric (AMT) survey, a standard question in MT
+interpretation \citep{Ledo2005}, requires every one of these steps and
+closes the paper.
 
 \plot{schematics}{width=\textwidth}
 {The format and its reference implementation. (a) The
@@ -187,8 +186,8 @@ field with its source values, their encoding and an optional
 uncertainty, a station table, optional topography and an inversion
 record; the same model is written losslessly to the HDF5 (PCSF) or
 the text (PCSM) encoding. (c) Reference implementation: one adapter
-per source converts solver output to the common model, which is
-written to either encoding and used by the sampling and comparison
+per source converts solver output to the common model; the model is
+written to either encoding and read by the sampling and comparison
 functions, the conformance suite, viewers and independent readers.}
 
 \tabl{related}{Existing representations compared with the requirements
@@ -224,7 +223,8 @@ root-mean-square differences of $\log_{10}\rho$, in decades, between
 the correct and the wrong reading of the same file
 (Table~\ref{tbl:ambiguities}).
 
-The first ambiguity is the scale of the stored numbers. ModEM writes
+The most basic ambiguity is the scale of the stored numbers (A1 and
+A2 in Table~\ref{tbl:ambiguities}). ModEM writes
 the natural logarithm of resistivity and states it in a header keyword
 that many readers ignore; Occam2D writes $\log_{10}$ and states it
 nowhere. Reading the Baohuashan ModEM model as $\log_{10}$ values
@@ -233,8 +233,8 @@ reading an Occam2D model as natural logarithms displaces it by 2.3
 decades. These errors are large enough to be noticed, but only by a
 reader who already knows what resistivities to expect.
 
-The second ambiguity is the order of the horizontal axes. ModEM orders
-its grid north first, so that its $x$ axis points north and its $y$
+The order of the horizontal axes is harder to detect (A3). ModEM
+orders its grid north first, so that its $x$ axis points north and its $y$
 axis east, the reverse of the usual map convention. A reader who
 assumes east first places each station column in a different part of
 the model. Below the 122 stations of the Baohuashan survey, from the
@@ -242,31 +242,33 @@ surface to 1~km depth, this error is 0.72 decades on average and
 reaches 2.5 decades. Unlike an encoding error, it produces a plausible
 model and is therefore unlikely to be noticed.
 
-The third ambiguity is the depth datum. In the Baohuashan ModEM files,
+The vertical datum is stated even less explicitly (A4). In the
+Baohuashan ModEM files,
 station depths are measured from a model top at 224~m above sea level,
 a value that appears only in a comment line of the data file. A reader
 who starts each profile at the top of the model, instead of at the
 station, reads the first tens of meters from the air and shifts the
 rest of the profile; the error is 3.1 decades on average and reaches
-11.8 decades. Closely related is the treatment of the air cells, which
-carry $10^{11}$ to $10^{13}$~\ohmm\ in this model. A reader who
-interpolates across the surface without removing them contaminates the
-upper 100~m by 4.5 decades on average and up to 11.7 decades.
+11.8 decades. The air cells, which carry $10^{11}$ to
+$10^{13}$~\ohmm\ in this model, pose a related problem (A5): a reader
+who interpolates across the surface without removing them contaminates
+the upper 100~m by 4.5 decades on average and up to 11.7 decades.
 
-The fourth ambiguity is the origin of the horizontal coordinate in
-Occam2D. Its mesh coordinate starts at the outer edge of the lateral
-padding, not at the first station. The offset is 0.7~km for the
+Occam2D raises the same question for the horizontal origin (A6):
+its mesh coordinate starts at the outer edge of the lateral padding,
+not at the first station. The offset is 0.7~km for the
 Tongkeng mesh and 12.7~km for the Baohuashan L18 mesh, and reading the
 mesh coordinate as station chainage displaces the two models by 0.8
 and 2.7 decades. The Tongkeng run files also contain no coordinates
 at all; the station positions and elevations had to be recovered from
 a separate survey file.
 
-The fifth ambiguity is which model a file contains. MARE2DEM writes one
-resistivity file per iteration. An example file distributed with an
-earlier version of pyCSAMT contained the starting model, written by a
-reader that has since been corrected, and it passed every
-self-consistency test because it was only compared with itself. Its
+A file may also hold another model than the one intended (A7).
+MARE2DEM writes one resistivity file per iteration, and an example file
+distributed with an earlier version of pyCSAMT contained the starting
+model, written by a reader that has since been corrected. It passed
+every self-consistency test because it was only compared with
+itself. Its
 6538 free regions differ from those of the final iteration by 0.77
 decades on average and up to 2.4 decades.
 
@@ -301,36 +303,32 @@ A7 & starting model read for the final one & MARE2DEM & 0.77 & 0.60 & 2.38 \\
 % =====================================================================
 \section{CRITICAL INFORMATION FOR AN INVERSION MODEL}
 
-The ambiguities above concern how to read the numbers. A second class
-of information concerns how to judge them, and is just as often
-missing. \citet{Kelbert2020} defined the critical metadata of a transfer
+The ambiguities above concern how to read the numbers; a second class
+of information, just as often missing, concerns how to judge them.
+\citet{Kelbert2020} defined the critical metadata of a transfer
 function as the information without which it cannot be interpreted or
-reused. The equivalent for an inversion model falls into seven groups,
-which PCSF stores as an inversion record (Table~\ref{tbl:record}).
+reused. For an inversion model, this information falls into seven
+groups, which PCSF stores as an inversion record
+(Table~\ref{tbl:record}).
 
-The first group describes the data that were inverted: the components
-(for example the TE and TM apparent resistivity and phase, the
-off-diagonal or full impedance, the tipper), the frequency range and
-number of frequencies, the number of stations, the errors or error
-floors, and the sign convention of the time dependence. Two models of
-the same survey can differ simply because they fit different data, and
-without this group the difference cannot be attributed. The second
-group describes the forward problem, its dimensionality and its mesh.
-The third describes the regularization: its type, the final trade-off
-parameter and the starting or prior model, which together determine
-which of the many models that fit the data was selected.
-
-The fourth group describes the fit: the final and target RMS misfit,
-the number of iterations and how the run ended. We distinguish runs
-that reached their target misfit, runs stopped by an iteration or time
-limit, and runs that stalled before reaching the target, because a
-model from a run that stalled at a misfit of 8 does not carry the same
-weight as one that reached a misfit of 1. The fifth group describes
-reliability: the depth to which the data constrain the model, and
-optionally uncertainty or sensitivity arrays. The sixth and seventh
-groups record provenance (the producing code and software, the creation
-time and the native values, described in the next section) and the
-citation and licence under which the model may be reused.
+The data group records what was inverted, from the components (for
+example TE and TM apparent resistivity and phase, or the full
+impedance) to the errors and the sign convention of the time
+dependence; two models of the same survey can differ simply because
+they fit different data. The forward and regularization groups record
+the dimensionality and mesh of the forward problem and the type, final
+trade-off parameter and starting model of the regularization, which
+together select one of the many models that fit the data. The misfit
+group records the final and target root-mean-square (RMS) misfit, the
+number of iterations and how the run ended. We distinguish runs that
+reached their target misfit, runs stopped by an iteration or time
+limit, and runs that stalled, because a model from a run that stalled
+at a misfit of 8 does not carry the weight of one that reached a
+misfit of 1. The reliability group records the depth to which the data
+constrain the model and, optionally, uncertainty or sensitivity arrays.
+The solver and provenance (producing code, creation time and native
+values, described in the next section) and the citation and licence
+under which the model may be reused complete the record.
 
 The inversion record has eight required and fifteen recommended
 fields (Table~\ref{tbl:record}). The reference implementation checks
@@ -404,7 +402,7 @@ model that meets these requirements.
 
 \subsection{Formal definition}
 
-Formally, a PCSF model is the tuple
+A PCSF model is the tuple
 \begin{equation}
 M = \left(\kappa,\ \mathcal{G},\ \boldsymbol{\rho},\ \mathbf{r},\ e,\
 \mathbf{U},\ \mathcal{T},\ \mathcal{H},\ \mathcal{I},\ v\right),
@@ -500,9 +498,9 @@ r,        & e = \mathrm{lin} \quad \text{(MARE2DEM)},\\
 \label{eq:canonical}
 \end{equation}
 where the last two encodings store conductivity $\sigma$ in S/m, as
-community archives do. Adapters store $r$ unchanged next to $\rho$,
-together with $e$ (R4), so that a reader can use either the common
-scale or the exact values the solver wrote. Comparisons in this paper
+community archives do. Adapters store $r$ and $e$ unchanged next to
+$\rho$ (R4), so that a reader can use either the common scale or the
+exact values the solver wrote. Comparisons in this paper
 use the log-resistivity $m = \log_{10}\rho$.
 
 Each $C_e$ is a bijection from its domain $D_e$ ($\R$ for the
@@ -519,25 +517,19 @@ A change of encoding $e \to e'$, $r' = C_{e'}^{-1}\!\left(C_e(r)\right)$,
 therefore has the derivative
 $\mathrm{d}r'/\mathrm{d}r =
 (\mathrm{d}\rho/\mathrm{d}r)_{e} / (\mathrm{d}\rho/\mathrm{d}r')_{e'}$,
-which is a constant between logarithmic encodings. Rule C5
+a constant between logarithmic encodings. Rule C5
 (Table~\ref{tbl:rules}) checks that the stored pair $(r, e)$
 reproduces $\rho$.
 
-Each file declares one of four geometry kinds $\kappa$
-(Table~\ref{tbl:geometry}), and a reader must read $\kappa$ before it
-interprets any array, because array shape alone does not identify the
-geometry. A $\Gtwo$ model is a single profile of shape
-$(n_z, n_x)$ whose horizontal coordinate is the station chainage, with
-the Occam2D padding offset removed (ambiguity A6). A $\Gthree$
-model is a tensor volume of shape $(n_z, n_y, n_x)$ that keeps the
-ModEM axis order and stores its origin, rotation and air layers. A
-$\Mtri$ model holds node coordinates, triangle
-connectivity and a region identifier per triangle, with resistivity
-per triangle and optional per-region and per-node tables. A
-$\Lset$ model is a set of $\Gtwo$ profiles with their
-cross-line offsets, each labeled as measured or assigned; a 3D volume
-interpolated between them may be stored but is always labeled as
-synthesized. Depth $z$ is positive downward for all kinds.
+A reader must read the declared kind $\kappa$ before it interprets
+any array, because array shape alone does not identify the geometry
+(Table~\ref{tbl:geometry}). The kinds also fix conventions that the
+native files leave open: a $\Gtwo$ profile uses the station chainage
+as its horizontal coordinate, with the Occam2D padding offset removed
+(ambiguity A6); a $\Gthree$ volume keeps the ModEM axis order and
+stores its origin, rotation and number of air layers; and a volume
+interpolated between the profiles of a $\Lset$ model may be stored but
+is always labeled as synthesized (rule C7).
 
 \tabl{geometry}{The four geometry kinds, with the identifier that a
 file stores for each.}{
@@ -566,8 +558,8 @@ optional line identifier, and its longitude and latitude in WGS84. A
 root attribute stores the coordinate reference system as a string
 accepted by the PROJ library, and topography is stored per station or
 as a gridded surface. With this table, the frame transformations of
-the next section can be estimated from the file itself, which is how
-ambiguities A3 and A4 are resolved without outside knowledge.
+the next section can be estimated from the file itself, which resolves
+ambiguities A3 and A4 without outside knowledge.
 
 Every file records the producing code, the writing software, the
 creation time and the resistivity unit. An optional history group
@@ -589,11 +581,7 @@ convert back to the same IEEE 754 numbers \citep{Steele1990}, so the
 two encodings convert into each other without loss. PCSM relates to
 PCSF as CDL text relates to netCDF. Each file carries a semantic
 version (R6): a reader rejects an unknown major version and warns
-about a newer minor version, and the conformance rules of
-Table~\ref{tbl:rules} state, among others, that resistivity is positive, that its shape matches the
-geometry, and that the source values reproduce the canonical values
-through equation~\ref{eq:canonical}. The version described here is
-0.1.0.
+about a newer minor version. The version described here is 0.1.0.
 
 % =====================================================================
 \section{FRAME TRANSFORMATIONS, SAMPLING AND UNCERTAINTY}
@@ -655,8 +643,8 @@ are related by
 with $\mathbf{P} = \mathbf{I}$ for an east-first grid and
 $\mathbf{P} = \bigl(\begin{smallmatrix}0 & 1\\ 1 & 0\end{smallmatrix}\bigr)$
 for a north-first grid such as ModEM's. The determinant of $\mathbf{A}$
-is negative for a north-first grid, which is how a reader detects
-ambiguity A3 from the numbers alone. Vertically, a point at depth $d$
+is negative for a north-first grid, so a reader detects ambiguity A3
+from the numbers alone. Vertically, a point at depth $d$
 below the surface at station $s$ lies at model depth
 \begin{equation}
 z = z_s + d,
@@ -682,9 +670,7 @@ squares,
 \end{equation}
 and the singular-value decomposition of $\hat{\mathbf{A}}\mathbf{P}$
 returns $\theta$ and $\mathbf{S}$. The residual measures how well the
-frame is described by equation~\ref{eq:frame}. This estimate needs no
-information outside the file, and it checks the stated conventions
-instead of trusting them.
+frame is described by equation~\ref{eq:frame}.
 
 \subsection{Node-to-cell projection}
 
@@ -760,8 +746,8 @@ discontinuities, such as the interfaces of the model of Test~2.
 
 \subsection{Uncertainty under a change of encoding}
 
-A stored uncertainty has a meaning only together with the encoding it
-refers to. Between logarithmic encodings the conversion is exact,
+A stored uncertainty is meaningful only in the encoding it refers
+to. Between logarithmic encodings the conversion is exact,
 \begin{equation}
 \sigma_{\ln\rho} = \ln(10)\,\sigma_m ,
 \label{eq:sigma-log}
@@ -1132,7 +1118,7 @@ original solver files. We downloaded three such models: MCR-MT-2016
 \citep{Bedrosian2021,EMC_THO} and WUS-MT-2021
 \citep{Murphy2021,EMC_WUS}. Each was computed with ModEM and is
 distributed as a netCDF-4 file of $\log_{10}$ conductivity on a regular
-0.1$^\circ$ grid of latitude and longitude, together with the ModEM
+0.1$^\circ$ grid of latitude and longitude, accompanied by the ModEM
 model file and a short text that states the transverse Mercator
 projection of the solver grid. The archive files thus use a sixth
 convention, $\log_{10}\sigma$, in addition to the three of the solvers,
@@ -1192,13 +1178,10 @@ of the eight required fields, the solver; the data, errors,
 regularization, misfit and convergence are absent
 (Table~\ref{tbl:emc}).
 
-These results show what each representation contributes. The archive
-format makes models discoverable and citable, and PCSF carries it
-without loss. The archive version is, however, a derived product whose
-derivation is not recorded, and it cannot replace the solver model when
-a result has to be checked. Storing the solver model in PCSF, with its
-native grid, source values, projection and inversion record, next to
-the archive version would remove each of the ambiguities found here.
+The archive format thus makes models discoverable and citable, and
+PCSF carries it without loss, but the archive version is a derived
+product whose derivation is not recorded; it cannot replace the solver
+model when a result has to be checked.
 
 \tabl{emc}{Round trip of three EMC archive models through PCSF and
 comparison of each archive file with its ModEM solver file. Equal
@@ -1251,35 +1234,27 @@ R_t\big(W_t(R_h(W_h(M)))\big) = M
 \qquad \text{for all } M \in \mathfrak{M},
 \label{eq:lossless}
 \end{equation}
-with every stored array equal in IEEE 754 binary64, because HDF5
-stores the binary values and PCSM writes each value as the shortest
-decimal string that converts back to it \citep{Steele1990}. A
+with every stored array equal in IEEE 754 binary64 (Test~3). A
 conversion $F$ is lossy when no map $G$ satisfies $G \circ F =
 \mathrm{id}$ on $\mathfrak{M}$: regridding a mesh assigns one value to
 every grid point inside a triangle, so the positions of region
 boundaries within a grid step cannot be recovered, and the archive
 resampling of the EMC replaces the native cells by a coarser support.
 
-Conversion from a native solver file to PCSF is lossless for the model
-values: the source values are stored unchanged (Test~1), the
-canonical values follow from them exactly, and the native geometry is
-kept. It is also the point at which the information that the native
-files lack is added, because the adapter applies the padding offset,
-keeps the axis convention and the station depths, and attaches the
-inversion record. Conversion between PCSF and PCSM is lossless in both
-directions for every field (Test~3). Conversion from PCSF to a netCDF
-or VTK file of coordinates and resistivity keeps the values but loses
-the encoding of the source values, the station table, the inversion
-record and, for VTK, the coordinate reference system. Such a file can
-be displayed, but it can no longer be checked against the data or
-compared with another model without outside knowledge. Conversion
-from a mesh to a regular grid, or from a set of profiles to a 3D
-volume, changes the support of the values and is lossy by
-construction; its error depends on the cell size and the sampling
-rule (Test~2), and PCSF labels the result as synthesized so that it is
-never mistaken for an inversion result. Finally, conversion back from
-PCSF to a native solver file is possible for the values but loses the
-inversion record, because the native formats have no place for it.
+Conversion from a native solver file to PCSF keeps the source values
+unchanged (Test~1) and the native geometry, and it is the step at which
+the adapter adds what the native file lacks: the padding offset, the
+axis convention, the station depths and the inversion record. The
+other conversions of Table~\ref{tbl:lossy} keep the values but differ
+in what they drop. A netCDF or VTK file of coordinates and resistivity
+can be displayed, but without the source encoding, the station table
+and the record it can no longer be checked against the data or
+compared with another model. A native solver file written back from
+PCSF loses the record, because the native formats have no place for
+it. Regridding a mesh or interpolating a 3D volume between profiles
+changes the support of the values, with the errors measured in
+Test~2, and PCSF labels such a result as synthesized so that it is
+never mistaken for an inversion result.
 
 \tabl{lossy}{What each conversion keeps. L, lossless; lossy conversions
 name what is lost.}{
@@ -1458,29 +1433,26 @@ same size as the geological contrasts the models are meant to show.
 Most of them produce plausible models, so they are unlikely to be
 caught by inspection. PCSF removes them by construction: the encoding,
 axis convention, datum, offset and iteration are either applied once
-by the adapter or stated in the file, and the frame transformation is
-estimated from the station table instead of being assumed, which turns
-a stated convention into a checked one.
+by the adapter or stated in the file, and the frame transformation
+estimated from the station table turns a stated convention into a
+checked one.
 
 The inversion record addresses a different weakness. A model without
 its data, misfit and convergence state cannot be weighed, and in our
 field example these facts change the interpretation: all five 2D runs
-stopped before their target misfit, which is the first explanation to
+stopped before their target misfit, the first explanation to
 consider for the resistive bodies that the 3D model does not contain.
 The record makes this visible in the file itself, and its completeness
 check shows what a file still lacks, as for the Tongkeng errors and the
-licences here. The record also carries the depth of investigation,
-and restricting the comparison to it showed that the disagreement
-between the models lies within the depth the data resolve, except for
-part of the resistive block on L18.
+licences here. Because the record also carries the depth of
+investigation, the comparison could show that the disagreement lies
+within the depth the data resolve.
 
-The algorithms carry measurable errors, which Test~2 quantifies. For
-grids, interpolation of log-resistivity is both the most accurate and
-the most physically consistent rule. For meshes, point location is
-first order but keeps the boundaries of the native model. The geometric
-node projection is more accurate than the arithmetic one. The
-first-order conversion of uncertainty to linear resistivity is
-adequate only below about 0.1 decades. For learned predictors, PCSF
+The algorithms carry measurable errors, and the tests set their
+defaults: interpolation of log-resistivity on grids, point location on
+meshes because it keeps the native boundaries, the geometric node
+projection, and the first-order conversion of uncertainty only below
+about 0.1 decades. For learned predictors, PCSF
 stores the predicted model in a form that other groups can read and
 compare with classical inversions; reproducing a prediction still
 requires the checkpoint, the input data and the inference code, and
@@ -1504,12 +1476,13 @@ with their own versions. Readers and
 writers can be offered to MTpy and SimPEG, the inversion record can be
 aligned with the metadata vocabulary of MTH5 \citep{Peacock2022MTH5}
 and EMTF XML \citep{Kelbert2020}, and archives that already hold MT
-models could accept PCSF files with their records. The round trip
-through the Earth Model Collaboration shows both why and how: PCSF
-already carries the archive files without loss, and storing the solver
-model with its record next to each archive file would make the archive
-version traceable to the model it was derived from. The SEG Technical Standards Committee, which
-maintains EDI, would be a natural place to discuss a community version.
+models could accept PCSF files with their records. Because PCSF
+already carries the archive files of the Earth Model Collaboration
+without loss, storing each solver model with its record next to the
+archive file would make the archive version traceable to the model it
+was derived from. The SEG Technical Standards Committee, which
+maintains EDI, would be a natural place to discuss a community
+version.
 
 % =====================================================================
 \section{CONCLUSIONS}
@@ -1518,7 +1491,7 @@ Inversion models are exchanged in formats that leave their scale, axis
 order, datum, origin and iteration to the reader's knowledge, and in
 five real models from three codes the corresponding misreadings caused
 errors of 0.7 to 4.5 decades. PCSF stores an EM inversion model on its
-native geometry with these conventions resolved, together with a
+native geometry with these conventions resolved and keeps a
 record of the data, errors, solver, regularization, misfit,
 convergence and depth of investigation, in a binary and a text
 encoding that convert into each other without loss and that three
@@ -1561,8 +1534,8 @@ anonymous.4open.science)}
 \url{https://github.com/earthai-tech/pcsf}
 \fi
 under the BSD 3-Clause
-licence, together with the specification of the format, its JSON
-Schemas and its conformance suite. The folder \code{paper} of that
+licence; the repository also holds the specification of the format,
+its JSON Schemas and its conformance suite. The folder \code{paper} of that
 repository reproduces every number, table and figure of this paper:
 \code{run\_all.py} runs all analyses with pcsf alone from the archived
 models and native solver files; \code{run\_all.py --rebuild} first
