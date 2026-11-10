@@ -2,11 +2,18 @@ name: PCSF Studio installers
 
 # Builds the PCSF Studio installers, checks each frozen bundle with
 # its self-test, and attaches them to the GitHub release of a tag.
-# Run by hand from the Actions tab to get the files as artifacts.
+# On the dev branch it runs when the Studio or the installers change
+# (artifacts only); run it by hand from the Actions tab once this
+# file is on the default branch.
 
 on:
   push:
     tags: ["v*"]
+    branches: [dev]
+    paths:
+      - "src/pcsf/studio/**"
+      - "installers/**"
+      - ".github/workflows/studio-installers.yml"
   workflow_dispatch:
 
 permissions:
