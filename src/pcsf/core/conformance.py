@@ -181,6 +181,24 @@ def _check_native(
     )
 
 
+def _check_regions(rep: ConformanceReport, model: PCSFModel) -> None:
+    """Rule C10: region ids are 0-based indices into the table."""
+    ids = np.asarray(model.geometry.region_ids)
+    if ids.size == 0:
+        return
+    table = model.resistivity_by_region
+    if table is not None:
+        n_reg = np.asarray(table).shape[0]
+        ok = bool(ids.min() >= 0 and ids.max() < n_reg)
+        msg = (
+            f"region ids in [{ids.min()}, {ids.max()}], table {n_reg}"
+        )
+    else:
+        ok = bool(ids.min() >= 0)
+        msg = f"smallest region id {ids.min()}"
+    rep.add("C10.regions", ok, msg)
+
+
 def check_conformance(model: PCSFModel) -> ConformanceReport:
     """Check every conformance rule on a model.
 
@@ -200,6 +218,8 @@ def check_conformance(model: PCSFModel) -> ConformanceReport:
 
     Notes
     -----
+    Rule C10 requires the region ids of a mesh to be 0-based
+    indices into the per-region table, :math:`0 \\le \\zeta_c < n_r`.
     Rule C5 requires
     :math:`\\max_k |C_e(r_k) - \\rho_k| / |\\rho_k| \\le 10^{-12}`
     over the cells where both values are finite, with :math:`C_e` the
@@ -268,6 +288,8 @@ def check_conformance(model: PCSFModel) -> ConformanceReport:
         )
         if model.resistivity_native is not None:
             _check_native(rep, model, rho)
+        if kind == "mesh_unstructured":
+            _check_regions(rep, model)
         for name in ("uncertainty", "sensitivity"):
             arr = getattr(model, name)
             if arr is not None:

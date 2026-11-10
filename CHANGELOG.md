@@ -36,7 +36,7 @@ First release as a standalone package, extracted from pyCSAMT's
   `ADAPTERS`. On the paper's field runs and on the bundled runs they
   reproduce pyCSAMT's arrays bit for bit; EMC round trips are lossless.
 - `pcsf.datasets`: tiny synthetic Occam2D, ModEM and MARE2DEM runs.
-- `conformance/`: 25 reference files (valid, rule-breaking, rejected),
+- `conformance/`: 27 reference files (valid, rule-breaking, rejected),
   `expected.json` and the runner `run.py`.
 - `pcsf.schemas`: JSON Schemas of the inversion record and the model
   provenance; extra `pcsf[schema]` for validation.
@@ -84,6 +84,16 @@ First release as a standalone package, extracted from pyCSAMT's
   `installers/make_icon.py` renders the PNG and ICO icons; the
   self-test checks that it renders.
 - `installers/build.sh` and `installers/build.ps1`.
+
+### Changed in phase 5
+- Mesh region ids are 0-based indices into the per-region table
+  (specification, `geometry/region_ids`). The MARE2DEM adapters of
+  pcsf and pyCSAMT stored MARE2DEM's own numbering, which starts at 1,
+  while the rest of the package and the conformance check assumed 0;
+  they now convert it once, on conversion. `expand_regions` takes
+  0-based ids. The per-triangle resistivity was correct in every file.
+- New conformance rule C10 (`0 <= region id < n_regions`) and the
+  rule-breaking case `rule_c10_region_base`.
 
 ### Fixed
 - The CI workflow ran on pushes to `main`, a branch the repository

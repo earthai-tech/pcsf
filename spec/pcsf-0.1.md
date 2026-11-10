@@ -5,7 +5,7 @@
 > as examples; it is being rewritten as an implementation-neutral
 > specification for version 1.0 (normative rules, JSON Schema, conformance
 > suite). Where this text and `src/pcsf/core/conformance.py` differ, the
-> conformance rules C1-C9 apply.
+> conformance rules C1-C10 apply.
 
 
 **Version:** 0.1.0
@@ -227,7 +227,7 @@ keeps the real element resolution the solver ran on.
 |---|---|---|
 | `geometry/nodes` | `(n, 2)` or `(n, 3)` | node coordinates, m |
 | `geometry/connectivity` | `(m, 3)`, int64 | triangle node indices |
-| `geometry/region_ids` | `(m,)`, int32 | region id per triangle |
+| `geometry/region_ids` | `(m,)`, int32 | 0-based index of each triangle's region into the per-region table (`0 <= id < n_regions`); adapters convert solver numberings that start at 1 (MARE2DEM) on conversion |
 | attr `plane` | `"xz"` \| `"xy"` \| `"3d"`, default `"xz"` | physical plane; MARE2DEM profiles are conventionally `(y, z)` but stored generically as `"xz"` with `x` holding the profile's own along-line coordinate |
 
 `model/resistivity` shape: **either** `(m,)` (per-triangle, expanded
@@ -474,7 +474,9 @@ A **conformant reader** must:
 - never assume `model/resistivity`'s unit/scale beyond linear ohm-m;
 - reject an unrecognised MAJOR `pcsf_version`;
 - treat `multiline/derived_volume`, when present, as synthesized data,
-  never as a native 3-D inversion result.
+  never as a native 3-D inversion result;
+- index the per-region table of a mesh with the 0-based
+  `region_ids` (rule C10: `0 <= id < n_regions`).
 
 ## 9. PCSM: the ASCII sibling encoding
 

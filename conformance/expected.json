@@ -115,6 +115,7 @@
       "resistivity_sha256": "1af976052ef7476c0ebc982a250f4e51e341fb21d2a866e1bb393a74d0f0f811",
       "rules": [
         "C1.kind",
+        "C10.regions",
         "C2.positive",
         "C3.shape"
       ]
@@ -128,6 +129,7 @@
       "resistivity_sha256": "1af976052ef7476c0ebc982a250f4e51e341fb21d2a866e1bb393a74d0f0f811",
       "rules": [
         "C1.kind",
+        "C10.regions",
         "C2.positive",
         "C3.shape"
       ]
@@ -141,6 +143,7 @@
       "resistivity_sha256": "1af976052ef7476c0ebc982a250f4e51e341fb21d2a866e1bb393a74d0f0f811",
       "rules": [
         "C1.kind",
+        "C10.regions",
         "C2.positive",
         "C3.shape"
       ]
@@ -271,6 +274,18 @@
       "file": "rule_c7_not_synthesized.pcsm",
       "failed_rules": [
         "C7.synthesized"
+      ]
+    },
+    {
+      "file": "rule_c10_region_base.pcsf",
+      "failed_rules": [
+        "C10.regions"
+      ]
+    },
+    {
+      "file": "rule_c10_region_base.pcsm",
+      "failed_rules": [
+        "C10.regions"
       ]
     }
   ],

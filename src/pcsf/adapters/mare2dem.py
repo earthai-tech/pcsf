@@ -33,33 +33,35 @@ def expand_regions(
     Parameters
     ----------
     rho_by_region : array_like of shape (n_regions,)
-        Row ``i`` holds region ``i + 1``.
+        Row ``i`` holds region ``i``.
     region_ids : array_like of int, shape (n_triangles,)
-        1-based region number of each triangle.
+        0-based region index of each triangle, as stored in PCSF
+        (specification, mesh geometry).
 
     Returns
     -------
     ndarray of shape (n_triangles,)
+        ``rho_by_region[region_ids]``.
 
     Raises
     ------
     GeometryError
-        If a region number is outside ``[1, n_regions]``.
+        If a region index is outside ``[0, n_regions)``.
 
     Examples
     --------
     >>> from pcsf.adapters.mare2dem import expand_regions
-    >>> expand_regions([10.0, 100.0], [2, 1, 2]).tolist()
+    >>> expand_regions([10.0, 100.0], [1, 0, 1]).tolist()
     [100.0, 10.0, 100.0]
     """
     table = np.asarray(rho_by_region, dtype=float)
     ids = np.asarray(region_ids, dtype=np.int64)
-    if ids.size and (ids.min() < 1 or ids.max() > table.shape[0]):
+    if ids.size and (ids.min() < 0 or ids.max() >= table.shape[0]):
         raise GeometryError(
             f"region ids span [{ids.min()}, {ids.max()}], outside "
-            f"[1, {table.shape[0]}]"
+            f"[0, {table.shape[0]})"
         )
-    return table[ids - 1]
+    return table[ids]
 
 
 @register_adapter("mare2dem")
@@ -87,8 +89,8 @@ def mare2dem_to_pcsf(
     mesh : tuple of ndarray, optional
         ``(nodes, triangles, region_ids)`` of an existing
         triangulation, used instead of *poly*: nodes ``(n, 2)`` in
-        metres, 0-based triangles ``(m, 3)``, 1-based region ids
-        ``(m,)``.
+        metres, 0-based triangles ``(m, 3)``, and region numbers
+        ``(m,)`` in MARE2DEM's own numbering, from 1.
     log : str or os.PathLike, optional
         MARE2DEM log file, for the iteration history.
     survey : mapping or object, optional
@@ -160,6 +162,9 @@ def mare2dem_to_pcsf(
         )
     else:
         nodes, triangles, region_ids = (np.asarray(a) for a in mesh)
+    # MARE2DEM numbers regions from 1; PCSF stores 0-based indices
+    # into the per-region table, converted once here.
+    region_ids = np.asarray(region_ids, dtype=np.int64) - 1
     by_region = np.asarray(table.rho[:, 0], dtype=float)
     m = _ITER_NAME.search(res_path.name)
     geometry = UnstructuredMeshGeometry(

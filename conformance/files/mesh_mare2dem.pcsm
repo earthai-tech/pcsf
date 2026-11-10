@@ -24,7 +24,7 @@ CONNECTIVITY
 2 5 4
 END_CONNECTIVITY
 REGION_IDS
-1 1 2 2
+0 0 1 1
 END_REGION_IDS
 
 RESISTIVITY  # linear ohm.m (canonical; spec/pcsf-0.1.md, section 2)

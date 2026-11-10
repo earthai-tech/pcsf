@@ -40,7 +40,7 @@ import pcsf
 
 model = pcsf.read("model.pcsf")            # .pcsf, .pcsm or .pcsm.gz, detected from content
 print(pcsf.info(model))
-pcsf.validate(model).raise_if_failed()     # conformance rules C1-C9
+pcsf.validate(model).raise_if_failed()     # conformance rules C1-C10
 pcsf.write(model, "model.pcsm.gz")         # lossless text copy
 
 from pcsf.algorithms import sample_log10, compare_log10

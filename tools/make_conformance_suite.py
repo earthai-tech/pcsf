@@ -9,7 +9,8 @@ must produce:
     read them, pass every rule, and reproduce the canonical
     resistivity bit for bit (SHA-256 of the float64 C-order bytes).
 ``rule``
-    Readable files that break exactly one rule (C2, C5, C7). A reader
+    Readable files that break exactly one rule (C2, C5, C7, C10). A
+    reader
     must read them and report that rule as failed.
 ``reject``
     PCSM files altered so that a reader must refuse them, with the
@@ -42,6 +43,7 @@ from pcsf.core.schema import (
     Grid3DGeometry,
     LineEntry,
     MultilineGeometry,
+    UnstructuredMeshGeometry,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -164,10 +166,22 @@ def _rule_cases() -> dict[str, tuple[pcsf.PCSFModel, str]]:
             ),
         )
     )
+    # Region ids numbered from 1, as MARE2DEM does, instead of the
+    # 0-based indices PCSF requires.
+    one_based = pcsf.PCSFModel(
+        geometry=UnstructuredMeshGeometry(
+            nodes=[[0.0, 0.0], [1.0, 0.0], [0.0, 1.0], [1.0, 1.0]],
+            connectivity=[[0, 1, 2], [1, 3, 2]],
+            region_ids=[1, 2],
+        ),
+        resistivity=[10.0, 100.0],
+        resistivity_by_region=[10.0, 100.0],
+    )
     return {
         "rule_c2_negative": (negative, "C2.positive"),
         "rule_c5_native_mismatch": (mismatch, "C5.native"),
         "rule_c7_not_synthesized": (unlabelled, "C7.synthesized"),
+        "rule_c10_region_base": (one_based, "C10.regions"),
     }
 
 

@@ -69,13 +69,13 @@ SEA = "#cfe4f2"   # fixed seawater regions, outside the resistivity scale
 
 
 def mare2dem_fixed_sea(path):
-    """Numbers of the fixed regions below 1 ohm m (seawater).
+    """Region ids of the fixed regions below 1 ohm m (seawater).
 
     In a MARE2DEM .resistivity file every region row gives its
     resistivity and a parameter number, 0 for a fixed region; the sea
     is fixed at its known resistivity (0.3 ohm m in the demonstration)
-    and the air at 1e12 ohm m. Regions are numbered from 1, as in the
-    file and in the region ids that the MARE2DEM adapter stores.
+    and the air at 1e12 ohm m. The file numbers regions from 1; the
+    ids returned are the 0-based indices that PCSF stores.
     """
     ids, on = [], False
     for ln in path.read_text().splitlines():
@@ -85,7 +85,7 @@ def mare2dem_fixed_sea(path):
         if on and ln.strip():
             p = ln.split()
             if int(p[2]) == 0 and float(p[1]) < 1.0:
-                ids.append(int(p[0]))
+                ids.append(int(p[0]) - 1)
     return np.array(ids, dtype=int)
 
 

@@ -86,7 +86,14 @@ def plan() -> list[tuple[Path, Path]]:
     def add(src: Path, dst: str) -> None:
         out.append((src, Path(dst)))
 
-    for p in sorted((GEOPHYSICS / "data").glob("*.pcs[fm]")):
+    # The models are those of the rebuild from the native runs
+    # (run_all.py --rebuild), so that the archive holds what tier 2
+    # reproduces.
+    rebuilt = PAPER / "output" / "models"
+    models = sorted(rebuilt.glob("*.pcs[fm]"))
+    if not models:
+        raise SystemExit(f"no models in {rebuilt}; run run_all.py --rebuild")
+    for p in models:
         add(p, f"models/{p.name}")
     for p in occam_files(PYCSAMT / "data/occam2D"):
         add(p, f"native/occam2d/tongkeng/{p.name}")

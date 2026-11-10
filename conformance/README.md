@@ -30,7 +30,7 @@ reproduce the canonical resistivity bit for bit: the SHA-256 of the
 array as little-endian float64 in C order must equal
 `resistivity_sha256`.
 
-**rule** (6 files): readable files that break exactly one rule, in
+**rule** (8 files): readable files that break exactly one rule, in
 `.pcsf` and `.pcsm`. A reader must report that rule, and only it, as
 failed.
 
@@ -39,6 +39,7 @@ failed.
 | `rule_c2_negative` | C2: negative resistivity |
 | `rule_c5_native_mismatch` | C5: source values do not reproduce the canonical values |
 | `rule_c7_not_synthesized` | C7: derived volume not labelled synthesized |
+| `rule_c10_region_base` | C10: region ids numbered from 1 instead of 0 |
 
 **reject** (4 files): PCSM text altered so that a reader must refuse
 it. `error` names the pcsf exception; other implementations map it to

@@ -440,7 +440,10 @@ $\Omega_c = \operatorname{conv}\{\mathbf{v}_{a_c}, \mathbf{v}_{b_c},
 \mathbf{v}_{d_c}\}$, and a region map
 $\zeta: \{0, \ldots, n_c - 1\} \to \{0, \ldots, n_r - 1\}$ relates a
 per-region table to the per-triangle field by
-$\rho_c = \rho^{\mathrm{reg}}_{\zeta(c)}$. For
+$\rho_c = \rho^{\mathrm{reg}}_{\zeta(c)}$. Region ids are therefore
+0-based indices into the table; MARE2DEM numbers its regions from 1,
+and its adapter converts the numbering once, on conversion, so that a
+reader never has to guess the base of the index. For
 $\kappa = \Lset$, the geometry is a set
 $\{(\ell, \mathcal{G}_\ell, \boldsymbol{\rho}_\ell, y_\ell,
 o_\ell)\}$ of $\Gtwo$ models with cross-line offsets $y_\ell$
@@ -470,6 +473,8 @@ C8 & geographic coordinates & station longitude and latitude are both
   present or both absent \\
 C9 & uncertainty & $\mathbf{U}$ and the sensitivity have the shape of
   $\boldsymbol{\rho}$ \\
+C10 & region ids & $0 \le \zeta(c) < n_r$ for every triangle of a
+  $\Mtri$ model \\
 \bottomrule
 \end{tabular}
 }
