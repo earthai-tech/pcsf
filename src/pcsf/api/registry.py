@@ -362,8 +362,12 @@ def register_format(
     name : str
         Format name.
     descriptor : object
-        Object describing the format; its interface is defined by
-        the plugin that consumes it.
+        Object describing the format. Its interface is defined by
+        the plugin that consumes it, with one exception: when the
+        format is stored in the ``boreholes`` group of a ``.pcsf``
+        file, a ``from_dict`` attribute (a callable taking the
+        stored dictionary) makes :func:`pcsf.read_pcsf` return
+        its result instead of the dictionary.
     replace : bool, default False
         Allow replacing an existing format.
 

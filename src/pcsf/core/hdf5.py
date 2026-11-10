@@ -19,6 +19,7 @@ from typing import Any
 import h5py
 import numpy as np
 
+from ..api.registry import FORMATS
 from ..exceptions import FormatError
 from .schema import (
     PCSF_VERSION,
@@ -480,6 +481,14 @@ def read_pcsf(path: str | PathLike) -> PCSFModel:
     --------
     write_pcsf : Inverse operation.
     pcsf.read : Read either encoding.
+    pcsf.api.registry.register_format : Companion-format decoders.
+
+    Notes
+    -----
+    The optional ``boreholes`` group is returned as the dictionary
+    it stores, unless a companion format registered under the
+    group's ``kind`` attribute (``"pcbh"``) provides a ``from_dict``
+    callable, in which case ``model.boreholes`` is its result.
 
     Examples
     --------
@@ -558,7 +567,11 @@ def read_pcsf(path: str | PathLike) -> PCSFModel:
 
         boreholes = None
         if "boreholes" in fh:
-            boreholes = _read_json(fh["boreholes"], "association_json")
+            group = fh["boreholes"]
+            boreholes = _decode_association(
+                _attr_str(group.attrs, "kind", "pcbh"),
+                _read_json(group, "association_json"),
+            )
 
         model = PCSFModel(
             geometry=geometry,
@@ -592,6 +605,18 @@ def read_pcsf(path: str | PathLike) -> PCSFModel:
 
     model.validate()
     return model
+
+
+def _decode_association(kind: str, payload: dict) -> Any:
+    """Decode a borehole association with its companion format.
+
+    Returns *payload* unchanged when no format is registered under
+    *kind* or the registered descriptor has no ``from_dict``.
+    """
+    if kind not in FORMATS:
+        return payload
+    from_dict = getattr(FORMATS.get(kind), "from_dict", None)
+    return from_dict(payload) if callable(from_dict) else payload
 
 
 def _association_payload(boreholes: Any) -> dict:

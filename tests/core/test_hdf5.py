@@ -407,3 +407,57 @@ class TestErrors:
         # a newer, backward-compatible reader.
         restored = read_pcsf(path)
         assert restored.kind == "grid2d"
+
+
+class _Association:
+    """Minimal borehole association, as a companion format holds."""
+
+    def __init__(self, payload):
+        self.payload = payload
+
+    def to_dict(self):
+        return dict(self.payload)
+
+
+@pytest.fixture
+def no_pcbh_format():
+    """Remove any registered ``pcbh`` format for one test.
+
+    pyCSAMT registers one when it is imported (as the interop tests
+    do), which would decode the group these tests inspect.
+    """
+    from pcsf.api.registry import FORMATS
+
+    saved = FORMATS.get("pcbh") if "pcbh" in FORMATS else None
+    if saved is not None:
+        FORMATS.unregister("pcbh")
+    yield
+    if "pcbh" in FORMATS:
+        FORMATS.unregister("pcbh")
+    if saved is not None:
+        FORMATS.register("pcbh", saved)
+
+
+def test_boreholes_without_format_read_as_dict(
+    tmp_path, no_pcbh_format
+):
+    model = _grid2d_model()
+    model.boreholes = _Association({"reference": {"uri": "x"}})
+    restored = read_pcsf(write_pcsf(model, tmp_path / "bh.pcsf"))
+    assert restored.boreholes == {"reference": {"uri": "x"}}
+
+
+def test_boreholes_decoded_by_registered_format(
+    tmp_path, no_pcbh_format
+):
+    from types import SimpleNamespace
+
+    from pcsf.api.registry import register_format
+
+    model = _grid2d_model()
+    model.boreholes = _Association({"reference": {"uri": "x"}})
+    path = write_pcsf(model, tmp_path / "bh.pcsf")
+    register_format("pcbh", SimpleNamespace(from_dict=_Association))
+    restored = read_pcsf(path)
+    assert isinstance(restored.boreholes, _Association)
+    assert restored.boreholes.payload == {"reference": {"uri": "x"}}
