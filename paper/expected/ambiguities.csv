@@ -1,0 +1,9 @@
+case,file,ambiguity,rms_dec,mean_abs_dec,max_abs_dec,n,undefined_frac
+A1,ModEM (Baohuashan),natural-log values read as log10,4.45278713817956,4.370939081357613,5.817093272037052,197737,0.0
+A2,Occam2D (Baohuashan L18),log10 values read as natural log,2.4651768244216696,2.315093484720546,4.305326170812581,1984,0.0
+A3,ModEM (Baohuashan),north-first axes read as east-first,0.7205288905112275,0.5792129042980944,2.5428315566655604,12322,0.0
+A4,ModEM (Baohuashan),station depth ignored (profiles start at model top),3.099971142025272,1.2565920023117312,11.767054012191098,12322,0.0
+A5,ModEM (Baohuashan),air cells not removed (0-100 m below surface),4.47369603407081,2.3719122967392097,11.675858040826123,2562,0.0
+A6,Occam2D (Tongkeng),mesh-local x read as chainage (offset 0.7 km),0.7881789197322492,0.620691836346528,3.7887602059523684,4747,0.0
+A6,Occam2D (Baohuashan L18),mesh-local x read as chainage (offset 12.7 km),2.6721387944983164,2.2791789274727554,5.543051473707013,2424,0.040000000000000036
+A7,MARE2DEM (demonstration),starting model read instead of final iteration,0.7731403136509125,0.5962640272670241,2.3839589106791115,6538,0.0

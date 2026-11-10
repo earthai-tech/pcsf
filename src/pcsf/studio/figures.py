@@ -57,6 +57,7 @@ __all__ = [
     "draw",
     "n_positions",
     "position_label",
+    "view_values",
     "views",
 ]
 
@@ -185,6 +186,58 @@ def _offset(model: PCSFModel) -> tuple[float, float]:
     return float(origin[0]), float(origin[1])
 
 
+def view_values(
+    model: PCSFModel, view: str | None = None, index: int = 0
+) -> np.ndarray:
+    """Resistivity values shown by a view, flattened.
+
+    Parameters
+    ----------
+    model : PCSFModel
+        Model drawn.
+    view : str, optional
+        One of :func:`views` (*model*); the first one by default.
+    index : int, default 0
+        Position of the slice, section or line; clipped to the
+        valid range.
+
+    Returns
+    -------
+    ndarray of float, shape (n,)
+        Linear resistivity (ohm m) of the cells of the view: one
+        depth slice or section of a ``grid3d`` model, one line of a
+        ``multiline`` model, the whole model otherwise.
+
+    Raises
+    ------
+    ValueError
+        If *view* is not available for the model.
+
+    Examples
+    --------
+    >>> from pcsf import datasets
+    >>> from pcsf.studio.sources import open_source
+    >>> from pcsf.studio.figures import view_values
+    >>> m = open_source(datasets.path("modem_tiny")).model
+    >>> view_values(m, "depth slice", 0).shape
+    (20,)
+    """
+    view = view or views(model)[0]
+    _check_view(model, view)
+    index = int(np.clip(index, 0, n_positions(model, view) - 1))
+    if view == "line":
+        rho = model.geometry.lines[index].resistivity
+    else:
+        rho = np.asarray(model.resistivity)
+        if view == "depth slice":
+            rho = rho[index]
+        elif view == "y section":
+            rho = rho[:, index, :]
+        elif view == "x section":
+            rho = rho[:, :, index]
+    return np.ravel(np.asarray(rho, dtype=float))
+
+
 def _log10(values: Any) -> np.ndarray:
     rho = np.asarray(values, dtype=float)
     with np.errstate(divide="ignore", invalid="ignore"):
@@ -275,20 +328,28 @@ def _padded(
 
 def _limits(ax, model, view, index, max_depth, fit) -> None:
     """Apply the depth limit and the fit to the survey."""
-    depth_axis = view not in ("depth slice",)
-    if depth_axis and max_depth is not None and max_depth > 0:
-        top = ax.get_ylim()[1]
-        ax.set_ylim(min(max_depth, ax.get_ylim()[0]), top)
+    depth_axis = view != "depth slice"
+    limited = depth_axis and max_depth is not None and max_depth > 0
+    bottom, top = ax.get_ylim()
+    if view == "mesh":
+        # Meshes extend far into the air; the earth starts at depth 0
+        # or at the highest node below it.
+        nodes = np.asarray(model.geometry.nodes, dtype=float)
+        if fit:
+            z_lo, z_hi = np.percentile(nodes[:, 1], (5.0, 95.0))
+            top = min(z_lo, 0.0)
+            bottom = z_hi
+        if limited:
+            top = max(top, min(0.0, bottom))
+    if limited:
+        bottom = min(max_depth, bottom)
+    ax.set_ylim(bottom, top) if depth_axis else None
     if not fit:
         return
     st = _stations(model)
     if view == "mesh" and st is None:
-        nodes = np.asarray(model.geometry.nodes, dtype=float)
         lo, hi = np.percentile(nodes[:, 0], (5.0, 95.0))
         ax.set_xlim(lo, hi)
-        if max_depth is None or max_depth <= 0:
-            z_lo, z_hi = np.percentile(nodes[:, 1], (5.0, 95.0))
-            ax.set_ylim(z_hi, min(z_lo, 0.0))
         return
     if st is None:
         return

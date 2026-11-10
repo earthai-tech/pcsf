@@ -1,0 +1,4 @@
+model,grid,values,fill_values,pcsf_mb,pcsm_mb,netcdf_mb,format_equal,variables_bit_equal,attributes_equal,n_attributes
+MCR-MT-2016,50x129x180,1161000,0,10.32,53.71,3.09,True,True,True,57
+THO-MT-2021,79x169x350,4672850,0,34.67,220.81,10.47,True,True,True,51
+WUS-MT-2021,79x200x250,3950000,0,33.21,186.66,10.02,True,True,True,51

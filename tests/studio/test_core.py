@@ -217,3 +217,38 @@ def test_metadata_tree_is_plain():
             assert not isinstance(v, np.ndarray)
 
     walk(tree)
+
+
+# ---------------------------------------------------------- statistics
+def test_view_values_match_views():
+    m = MODELS["modem_tiny"]
+    nz, ny, nx = m.resistivity.shape
+    assert figures.view_values(m, "depth slice", 1).size == ny * nx
+    assert figures.view_values(m, "y section", 0).size == nz * nx
+    assert figures.view_values(m, "x section", 0).size == nz * ny
+    np.testing.assert_array_equal(
+        figures.view_values(m, "depth slice", 1),
+        m.resistivity[1].ravel(),
+    )
+    ml = MODELS["multiline"]
+    line = ml.geometry.lines[-1]
+    np.testing.assert_array_equal(
+        figures.view_values(ml, "line", 99),
+        np.ravel(line.resistivity),
+    )
+
+
+def test_value_stats():
+    s = summary.value_stats([10.0, 100.0, 1000.0, np.nan, -1.0, 1e12])
+    assert (s["n"], s["n_missing"], s["n_air"], s["n_earth"]) == (
+        6,
+        2,
+        1,
+        3,
+    )
+    assert s["median"] == pytest.approx(100.0)
+    assert s["min"] == 10.0 and s["max"] == 1000.0
+    assert s["log10_mean"] == pytest.approx(2.0)
+    assert s["log10_std"] == pytest.approx(np.sqrt(2.0 / 3.0))
+    empty = summary.value_stats([np.nan, 1e13])
+    assert empty["n_earth"] == 0 and empty["median"] is None

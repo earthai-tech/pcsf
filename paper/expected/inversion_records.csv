@@ -1,0 +1,13 @@
+file,solver,required_present,required_total,recommended_present,recommended_total,missing_required,termination,final_rms
+tongkeng_occam2d,Occam2D,7,8,9,15,data.errors,target_reached,0.9977012
+synthetic_unet,"synthetic UNet prediction (format test, no trained network)",1,8,1,15,data.components;data.frequency_range_hz;data.n_stations;data.errors;regularization.type;misfit.final_rms;misfit.termination,,
+synthetic_gcn,"synthetic graph network prediction (format test, no trained network)",1,8,1,15,data.components;data.frequency_range_hz;data.n_stations;data.errors;regularization.type;misfit.final_rms;misfit.termination,,
+baohuashan_modem3d,ModEM,8,8,14,15,,stalled,1.951533
+baohuashan_modem3d_sample,ModEM,8,8,10,15,,stalled,3.057151
+mare2dem_demo,MARE2DEM,8,8,7,15,,target_reached,1.0023
+baohuashan_occam2d_L18,Occam2D,8,8,14,15,,time_limit,7.802098
+baohuashan_occam2d_L22,Occam2D,8,8,14,15,,time_limit,9.066306
+baohuashan_occam2d_L26,Occam2D,8,8,14,15,,stalled,7.57939
+baohuashan_occam2d_L30,Occam2D,8,8,14,15,,time_limit,10.37293
+baohuashan_occam2d_L34,Occam2D,8,8,14,15,,stalled,7.67915
+baohuashan_multiline,Occam2D,8,8,14,15,,unknown,per line (7.58-10.37)

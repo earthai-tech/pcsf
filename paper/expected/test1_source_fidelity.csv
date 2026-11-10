@@ -1,0 +1,10 @@
+file,source,n,values_equal,canonical_equals_C_e_native
+mare2dem_demo,demo.6.resistivity,6540,True,True
+baohuashan_modem3d_sample,Modular_NLCG_073.rho,590400,True,True
+baohuashan_modem3d,stageA_v5_NLCG_113.rho,216216,True,True
+baohuashan_occam2d_L18,Occam2D ITER (via reader),1984,,True
+baohuashan_occam2d_L22,Occam2D ITER (via reader),1920,,True
+baohuashan_occam2d_L26,Occam2D ITER (via reader),1984,,True
+baohuashan_occam2d_L30,Occam2D ITER (via reader),1984,,True
+baohuashan_occam2d_L34,Occam2D ITER (via reader),1984,,True
+tongkeng_occam2d,Occam2D ITER (via reader),17856,,True

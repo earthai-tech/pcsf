@@ -1,0 +1,5 @@
+data/*
+!data/README.md
+output/
+*.zip
+tools/sources.local.json

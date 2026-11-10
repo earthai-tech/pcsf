@@ -18,7 +18,7 @@ from ..api import info
 from ..core.conformance import check_conformance
 from ..core.record import check_inversion_record, get_inversion_record
 from ..core.schema import PCSFModel
-from .figures import _model_values
+from .figures import AIR_THRESHOLD_OHM_M, _model_values
 
 __all__ = [
     "cell_table",
@@ -27,6 +27,7 @@ __all__ = [
     "record_rows",
     "station_rows",
     "summary_rows",
+    "value_stats",
     "write_csv",
 ]
 
@@ -271,6 +272,75 @@ def conformance_rows(model: PCSFModel) -> list[tuple[str, bool, str]]:
     return [
         (r.rule, bool(r.passed), r.message) for r in report.results
     ]
+
+
+def value_stats(values: Any) -> dict[str, Any]:
+    """Statistics of a set of resistivity values.
+
+    Air cells (at or above :data:`~pcsf.studio.figures.
+    AIR_THRESHOLD_OHM_M`) and missing values are counted, then left
+    out of the statistics of the earth.
+
+    Parameters
+    ----------
+    values : array_like
+        Linear resistivity in ohm m, any shape.
+
+    Returns
+    -------
+    dict
+        ``n`` (values), ``n_missing`` (NaN or not positive),
+        ``n_air``, ``n_earth``, and over the earth cells:
+        ``min``, ``p05``, ``median``, ``p95``, ``max`` (ohm m) and
+        ``log10_mean``, ``log10_std`` (decades). The earth
+        statistics are None when there is no earth cell.
+
+    Notes
+    -----
+    With :math:`r_i = \\log_{10}\\rho_i` over the :math:`n` earth
+    cells, ``log10_mean`` is :math:`\\bar r = n^{-1}\\sum_i r_i` and
+    ``log10_std`` the population standard deviation
+    :math:`\\sqrt{n^{-1}\\sum_i (r_i - \\bar r)^2}`. Percentiles use
+    linear interpolation (:func:`numpy.percentile`).
+
+    Examples
+    --------
+    >>> from pcsf.studio.summary import value_stats
+    >>> s = value_stats([10.0, 100.0, 1000.0, float("nan"), 1e12])
+    >>> s["n_earth"], s["n_air"], s["n_missing"], s["median"]
+    (3, 1, 1, 100.0)
+    >>> round(s["log10_mean"], 6), round(s["log10_std"], 6)
+    (2.0, 0.816497)
+    """
+    rho = np.ravel(np.asarray(values, dtype=float))
+    ok = np.isfinite(rho) & (rho > 0)
+    air = ok & (rho >= AIR_THRESHOLD_OHM_M)
+    earth = rho[ok & ~air]
+    out: dict[str, Any] = {
+        "n": int(rho.size),
+        "n_missing": int(rho.size - ok.sum()),
+        "n_air": int(air.sum()),
+        "n_earth": int(earth.size),
+    }
+    keys = (
+        "min",
+        "p05",
+        "median",
+        "p95",
+        "max",
+        "log10_mean",
+        "log10_std",
+    )
+    if earth.size == 0:
+        return {**out, **dict.fromkeys(keys)}
+    p = np.percentile(earth, [0, 5, 50, 95, 100])
+    r = np.log10(earth)
+    return {
+        **out,
+        **{k: float(v) for k, v in zip(keys[:5], p)},
+        "log10_mean": float(r.mean()),
+        "log10_std": float(r.std()),
+    }
 
 
 def cell_table(model: PCSFModel) -> tuple[list[str], np.ndarray]:

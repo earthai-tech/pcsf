@@ -1,0 +1,13 @@
+name,kind,source,shape,n_cells,n_stations,pcsf_bytes,pcsm_bytes
+tongkeng_occam2d,grid2d,occam2d,31x576,17856,47,101505,606676
+synthetic_unet,grid2d,unet,14x24,336,24,31087,16841
+synthetic_gcn,mesh_unstructured,gcn,96,96,0,23552,7771
+baohuashan_modem3d,grid3d,modem3d,44x54x91,216216,122,2771891,6133129
+baohuashan_modem3d_sample,grid3d,modem3d,41x50x288,590400,125,4086359,19662368
+mare2dem_demo,mesh_unstructured,mare2dem,6774,6774,0,195537,491923
+baohuashan_occam2d_L18,grid2d,occam2d,32x62,1984,25,42523,69361
+baohuashan_occam2d_L22,grid2d,occam2d,32x60,1920,25,41962,65239
+baohuashan_occam2d_L26,grid2d,occam2d,32x62,1984,25,42384,67822
+baohuashan_occam2d_L30,grid2d,occam2d,32x62,1984,25,42281,66831
+baohuashan_occam2d_L34,grid2d,occam2d,32x62,1984,25,42369,68495
+baohuashan_multiline,multiline,occam2d,5 lines,9856,125,164387,408588

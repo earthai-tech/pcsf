@@ -1,0 +1,13 @@
+file,kind,n_values,h5py_exact,h5dump_exact,pcsm_exact,conformance_checks,conformance_passed,native_max_rel_diff
+baohuashan_modem3d,grid3d,216216,True,True,True,6,6,0.0
+baohuashan_modem3d_sample,grid3d,590400,True,True,True,6,6,0.0
+baohuashan_multiline,multiline,9856,True,True,True,10,10,
+baohuashan_occam2d_L18,grid2d,1984,True,True,True,6,6,0.0
+baohuashan_occam2d_L22,grid2d,1920,True,True,True,6,6,0.0
+baohuashan_occam2d_L26,grid2d,1984,True,True,True,6,6,0.0
+baohuashan_occam2d_L30,grid2d,1984,True,True,True,6,6,0.0
+baohuashan_occam2d_L34,grid2d,1984,True,True,True,6,6,0.0
+mare2dem_demo,mesh_unstructured,6774,True,True,True,5,5,
+synthetic_gcn,mesh_unstructured,96,True,True,True,6,6,0.0
+synthetic_unet,grid2d,336,True,True,True,6,6,0.0
+tongkeng_occam2d,grid2d,17856,True,True,True,6,6,0.0

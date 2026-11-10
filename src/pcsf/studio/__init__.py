@@ -91,10 +91,23 @@ def self_test(report: Any = None) -> int:
     from .. import datasets, read, write
     from . import figures
     from .sources import open_source
-    from .window import ModelView, application
+    from .window import ModelView, application, logo_icon
 
     app = application()  # noqa: F841 (kept alive for the widgets)
     lines, failed = [], 0
+    # The logo is an SVG: a build without Qt's SVG plugins draws an
+    # empty icon, which a null check would not see.
+    image = logo_icon().pixmap(32, 32).toImage()
+    opaque = sum(
+        image.pixelColor(x, y).alpha() > 0
+        for x in range(0, 32, 4)
+        for y in range(0, 32, 4)
+    )
+    if opaque:
+        lines.append("ok   logo (SVG icon)")
+    else:
+        failed += 1
+        lines.append("FAIL logo: the SVG icon renders empty")
     with tempfile.TemporaryDirectory() as tmp:
         for name in datasets.NAMES:
             try:

@@ -1,0 +1,10 @@
+# Tier 1 of the reproduction (python paper/run_all.py), with pcsf
+# installed from the repository root:
+#   pip install -e ".[algorithms,emc,mare2dem,geo]" -r paper/requirements.txt
+numpy
+scipy
+matplotlib
+h5py
+netCDF4
+pyproj
+triangle

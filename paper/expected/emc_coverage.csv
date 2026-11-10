@@ -1,0 +1,4 @@
+model,solver_cells_h,solver_cells_h_inside_archive,solver_nz,archive_nz,archive_nz_within_solver_depth,archive_grid,solver_grid
+MCR-MT-2016,22500,18383,50,50,50,129 x 180 x 50,150 x 150 x 50
+THO-MT-2021,41800,37464,85,79,79,169 x 350 x 79,190 x 220 x 85
+WUS-MT-2021,46200,39448,85,79,79,200 x 250 x 79,220 x 210 x 85

@@ -10,7 +10,18 @@ Installers of PCSF Studio that need no Python installation.
 
 ## Build
 
-In an environment with the studio dependencies:
+```bash
+installers/build.sh --setup          # Linux, macOS, Git Bash
+```
+
+```powershell
+powershell -ExecutionPolicy Bypass -File installersuild.ps1 -Setup
+```
+
+`--setup`/`-Setup` installs the build requirements into the chosen
+Python (`PYTHON=...` or `-Python ...`; use a dedicated environment,
+not a base installation whose DLLs could enter the bundle). Both
+scripts run `build.py`; directly:
 
 ```bash
 pip install -e ".[studio,emc,mare2dem]" pyinstaller
@@ -39,6 +50,7 @@ get them as artifacts.
   association. The version comes from `pcsf._version`.
 - `linux/`: `package.sh` (AppImage and makeself), `install.sh` (run by
   the `.sh` installer) and the desktop entry.
-- `assets/`: icon, drawn by `make_icon.py`.
+- `assets/`: icons, rendered by `make_icon.py` from the SVG logo
+  `src/pcsf/studio/resources/pcsf-studio.svg`.
 
 macOS is not packaged yet; `pip install "pcsf[studio]"` works there.

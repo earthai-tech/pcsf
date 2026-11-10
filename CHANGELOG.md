@@ -63,6 +63,28 @@ First release as a standalone package, extracted from pyCSAMT's
   registered under its kind (`register_format("pcbh", ...)` with a
   `from_dict`), and returns the stored dictionary otherwise.
 
+### Added in phase 5
+- `paper/`: reproduction of the Geophysics paper. Tier 1
+  (`run_all.py`) reruns every analysis and figure with pcsf alone
+  from the archived models and native runs; tier 2
+  (`run_all.py --rebuild`) first rebuilds the models from the raw
+  runs and EDI files with pyCSAMT. `check_results.py` compares the
+  output with the tables of the paper (`expected/`); both tiers
+  reproduce all of them. `fetch_data.py` downloads and checks the
+  data archive (Zenodo, `data_source.json`);
+  `tools/make_data_archive.py` assembles it.
+- PCSF Studio, new layout: toolbar with samples and export menus,
+  help menu behind the logo at the far right, start page with recent
+  files, header with status chips (geometry, solver, conformance,
+  inversion record), and a statistics panel (whole model and current
+  view: cells, air and missing cells, median, 5-95 % range, mean and
+  spread of log10 rho, histogram with the colour range).
+- `pcsf.studio.figures.view_values`, `pcsf.studio.summary.value_stats`.
+- SVG logo (`studio/resources/pcsf-studio.svg`), from which
+  `installers/make_icon.py` renders the PNG and ICO icons; the
+  self-test checks that it renders.
+- `installers/build.sh` and `installers/build.ps1`.
+
 ### Fixed
 - The CI workflow ran on pushes to `main`, a branch the repository
   does not have; it now runs on `master`.

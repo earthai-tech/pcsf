@@ -83,3 +83,76 @@ def test_self_test_and_report(app, tmp_path):
     text = report.read_text()
     assert "self-test passed" in text
     assert main(["--self-test", "--report", str(report)]) == 0
+
+
+def test_statistics_panel_follows_view(app):
+    view = ModelView()
+    view.set_model(open_source(datasets.path("modem_tiny")))
+    from pcsf.studio.summary import value_stats
+
+    tiles = view.stats.model_block.tiles
+    # the tile counts earth cells, without air and missing values
+    n = value_stats(view.loaded.model.resistivity)["n_earth"]
+    assert tiles["cells"].value.text().replace(",", "") == str(n)
+    view.view_box.setCurrentText("depth slice")
+    view.slider.setValue(0)
+    layer = view.loaded.model.resistivity[0]
+    view_tiles = view.stats.view_block.tiles
+    expected = value_stats(layer)["n_earth"]
+    assert view_tiles["cells"].value.text() == str(expected)
+    assert "depth slice" in view.stats.view_title.text()
+
+
+def test_header_chips(app):
+    view = ModelView()
+    view.set_model(open_source(datasets.path("occam2d_tiny")))
+    chips = [
+        view.chips.itemAt(i).widget().text()
+        for i in range(view.chips.count())
+        if view.chips.itemAt(i).widget() is not None
+    ]
+    assert chips[0] == "grid2d"
+    assert any(c.startswith("conformance ") for c in chips)
+    # reopening replaces the chips instead of adding to them
+    view.set_model(open_source(datasets.path("modem_tiny")))
+    widgets = [
+        view.chips.itemAt(i).widget()
+        for i in range(view.chips.count())
+    ]
+    assert sum(w is not None for w in widgets) == len(
+        [w for w in widgets if w is not None]
+    )
+    assert widgets[0].text() == "grid3d"
+
+
+def test_welcome_recent_and_help(app, tmp_path):
+    from PySide6.QtCore import QSettings
+
+    settings = QSettings(
+        str(tmp_path / "studio.ini"), QSettings.Format.IniFormat
+    )
+    win = StudioWindow(settings=settings)
+    assert win.pages.currentWidget() is win.welcome
+    model = tmp_path / "m.pcsf"
+    __import__("pcsf").write(
+        open_source(datasets.path("occam2d_tiny")).model, model
+    )
+    assert win.open(model)
+    assert win.pages.currentWidget() is win.view
+    assert settings.value("recent")[0] == str(model)
+    # bundled samples are not added to the recent files
+    assert win.open(datasets.path("modem_tiny"))
+    assert len(win._recent()) == 1
+    win.show_welcome()
+    assert win.welcome.recent.count() == 1
+    texts = [a.text() for a in win.help_menu.actions()]
+    assert "About PCSF Studio" in texts
+    assert not win.help_button.icon().isNull()
+
+
+def test_logo_renders(app):
+    from pcsf.studio.window import ICON_SVG, logo_icon
+
+    assert ICON_SVG.exists()
+    pixmap = logo_icon().pixmap(32, 32)
+    assert not pixmap.isNull() and pixmap.width() == 32

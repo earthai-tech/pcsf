@@ -84,8 +84,9 @@ versioning; other modules are internal.
 
 Version 0.1.0.dev0, format version 0.1.0. Phases 1 (core and
 algorithms), 2 (solver parsers and adapters, conformance suite, JSON
-Schemas) and 4 (PCSF Studio and its installers) are complete; pyCSAMT
-uses pcsf as its format core (phase 3). See
+Schemas), 4 (PCSF Studio and its installers) and 5 (reproduction of
+the paper, [paper/](paper/README.md)) are complete; pyCSAMT uses pcsf
+as its format core (phase 3). See
 [CHANGELOG.md](CHANGELOG.md).
 
 ## PCSF Studio
