@@ -698,9 +698,11 @@ class PCSFModel(PCSFObject, MetadataMixin):
 
     Parameters
     ----------
-    geometry : Grid2DGeometry, Grid3DGeometry,
-            UnstructuredMeshGeometry or MultilineGeometry
-        The model's geometry, discriminated by ``geometry.kind``.
+    geometry : geometry object
+        The model's geometry, discriminated by ``geometry.kind``:
+        a :class:`Grid2DGeometry`, :class:`Grid3DGeometry`,
+        :class:`UnstructuredMeshGeometry` or
+        :class:`MultilineGeometry`.
     resistivity : ndarray, optional
         Canonical **linear ohm.m** resistivity. Required for
         ``grid2d``/``grid3d``/``mesh_unstructured`` geometries;

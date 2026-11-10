@@ -12,6 +12,7 @@ venv/
 .coverage
 htmlcov/
 docs/_build/
+docs/api/generated/
 installers/dist/
 installers/build/
 *.spec.bak

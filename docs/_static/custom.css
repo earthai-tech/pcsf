@@ -1,0 +1,18 @@
+/* Small adjustments to the pydata theme. */
+
+/* The logo is a square icon; keep it the height of the bar text. */
+.navbar-brand img {
+  height: 30px;
+}
+
+/* Wide reference tables scroll instead of widening the page. */
+.bd-article table.table {
+  display: block;
+  overflow-x: auto;
+}
+
+/* Screenshots of PCSF Studio. */
+figure img {
+  border: 1px solid var(--pst-color-border);
+  border-radius: 8px;
+}
