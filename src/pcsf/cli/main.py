@@ -6,6 +6,7 @@ Commands::
     pcsf validate FILE [FILE ...]
     pcsf convert SRC DST [--log10-view]
     pcsf compare A B
+    pcsf studio [PATH]
     pcsf version
 
 ``compare`` needs two models of the same geometry kind and shape; to
@@ -75,6 +76,12 @@ def _cmd_compare(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_studio(args: argparse.Namespace) -> int:
+    from ..studio import main as studio_main
+
+    return studio_main([args.path] if args.path else [])
+
+
 def _cmd_version(args: argparse.Namespace) -> int:
     print(f"pcsf {__version__} (format {FORMAT_VERSION})")
     return 0
@@ -125,6 +132,11 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("a")
     s.add_argument("b")
     s.set_defaults(func=_cmd_compare)
+    s = sub.add_parser(
+        "studio", help="open PCSF Studio (needs pcsf[studio])"
+    )
+    s.add_argument("path", nargs="?", help="file or run folder")
+    s.set_defaults(func=_cmd_studio)
     s = sub.add_parser("version", help="print versions")
     s.set_defaults(func=_cmd_version)
     return p

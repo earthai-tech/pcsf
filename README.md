@@ -29,7 +29,7 @@ allowed, optionally `.pcsm.gz`).
 pip install pcsf                    # core: NumPy + h5py only
 pip install "pcsf[emc]"             # + EarthScope/IRIS EMC netCDF archives
 pip install "pcsf[mare2dem]"        # + triangulation of MARE2DEM models
-pip install "pcsf[studio]"          # + PCSF Studio (graphical application, planned)
+pip install "pcsf[studio]"          # + PCSF Studio (graphical viewer)
 pip install "pcsf[all]"             # everything
 ```
 
@@ -83,9 +83,30 @@ versioning; other modules are internal.
 ## Status
 
 Version 0.1.0.dev0, format version 0.1.0. Phases 1 (core and
-algorithms) and 2 (solver parsers and adapters, conformance suite,
-JSON Schemas) are complete; PCSF Studio and the installers follow.
-See [CHANGELOG.md](CHANGELOG.md).
+algorithms), 2 (solver parsers and adapters, conformance suite, JSON
+Schemas) and 4 (PCSF Studio and its installers) are complete; pyCSAMT
+uses pcsf as its format core (phase 3). See
+[CHANGELOG.md](CHANGELOG.md).
+
+## PCSF Studio
+
+PCSF Studio is a viewer and inspector: it opens `.pcsf` and `.pcsm`
+files, Occam2D, ModEM and MARE2DEM runs and EMC netCDF files; draws
+sections, depth slices, meshes and lines; lists stations, metadata,
+the inversion record and the conformance rules; converts between
+PCSF and PCSM; and exports figures and CSV tables.
+
+```bash
+pip install "pcsf[studio]"
+pcsf-studio model.pcsf           # or: pcsf studio, python -m pcsf.studio
+pcsf-studio --self-test          # check an installation
+```
+
+Installers that need no Python (Windows `setup.exe`, Linux AppImage
+and self-extracting `.sh`) are built by
+[installers/build.py](installers/README.md) and attached to each
+release. Its widget `pcsf.studio.ModelView` can be embedded in other
+Qt applications.
 
 ## Citing
 

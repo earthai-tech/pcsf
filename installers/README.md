@@ -1,7 +1,44 @@
-# Installers (planned, phase 4)
+# PCSF Studio installers
 
-- Windows: PyInstaller one-folder build of PCSF Studio + Inno Setup `.exe`
-- Linux: AppImage and a self-extracting `.sh` (makeself)
-- macOS: `.app` bundle (optional)
+Installers of PCSF Studio that need no Python installation.
 
-Builds run in GitHub Actions on every release tag.
+| Platform | File | Tool |
+|---|---|---|
+| Windows | `pcsf-studio-<version>-setup.exe` | PyInstaller + Inno Setup 6 |
+| Linux | `pcsf-studio-<version>-x86_64.AppImage` | PyInstaller + appimagetool |
+| Linux | `pcsf-studio-<version>-linux.sh` (installs in `~/.local`) | PyInstaller + makeself |
+
+## Build
+
+In an environment with the studio dependencies:
+
+```bash
+pip install -e ".[studio,emc,mare2dem]" pyinstaller
+python installers/build.py
+```
+
+`build.py` freezes the application into `dist/pcsf-studio/`
+(`pyinstaller/pcsf-studio.spec`), runs the frozen executable with
+`--self-test` (every bundled dataset is opened, drawn and converted)
+and stops if it fails, then packages the bundle with the tools found
+on the machine; a missing tool is reported as skipped. Options:
+`--skip-freeze` reuses an existing bundle, `--no-package` stops after
+the self-test.
+
+The workflow `.github/workflows/studio-installers.yml` runs the same
+script on Windows and Ubuntu 22.04 for every `v*` tag and attaches
+the installers to the release; run it by hand from the Actions tab to
+get them as artifacts.
+
+## Files
+
+- `pyinstaller/`: spec and entry script (one-folder, windowed; Qt
+  modules the Studio does not use are excluded).
+- `windows/pcsf-studio.iss`: Inno Setup script. Per-user install by
+  default, Start Menu entry, optional desktop icon and `.pcsf`/`.pcsm`
+  association. The version comes from `pcsf._version`.
+- `linux/`: `package.sh` (AppImage and makeself), `install.sh` (run by
+  the `.sh` installer) and the desktop entry.
+- `assets/`: icon, drawn by `make_icon.py`.
+
+macOS is not packaged yet; `pip install "pcsf[studio]"` works there.

@@ -71,6 +71,9 @@ Changelog = "https://github.com/earthai-tech/pcsf/blob/main/CHANGELOG.md"
 [project.scripts]
 pcsf = "pcsf.cli.main:main"
 
+[project.gui-scripts]
+pcsf-studio = "pcsf.studio:main"
+
 # Other packages extend pcsf through these entry-point groups
 # (see CONTRIBUTING.md and src/pcsf/plugins/__init__.py):
 #   pcsf.encodings  -> callable registering resistivity encodings
@@ -85,7 +88,12 @@ include-package-data = true
 where = ["src"]
 
 [tool.setuptools.package-data]
-pcsf = ["py.typed", "datasets/*/*", "schemas/*.json"]
+pcsf = [
+    "py.typed",
+    "datasets/*/*",
+    "schemas/*.json",
+    "studio/resources/*",
+]
 
 [tool.setuptools.dynamic]
 version = { attr = "pcsf._version.__version__" }

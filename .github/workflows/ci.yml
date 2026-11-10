@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [master]
   pull_request:
 
 jobs:
@@ -29,6 +29,29 @@ jobs:
       - name: Test
         run: pytest -q
 
+  studio:
+    # PCSF Studio widgets, drawn offscreen.
+    name: studio / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Qt runtime libraries
+        if: runner.os == 'Linux'
+        run: >-
+          sudo apt-get update && sudo apt-get install -y
+          libegl1 libgl1 libxkbcommon0 libfontconfig1 libdbus-1-3
+      - run: pip install -e ".[dev,studio]"
+      - run: pytest -q tests/studio src/pcsf/studio
+
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -37,4 +60,4 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install ruff
-      - run: ruff check src tests
+      - run: ruff check src tests installers

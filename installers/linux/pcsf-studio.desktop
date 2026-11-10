@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=PCSF Studio
+Comment=View and inspect PCSF subsurface models
+Exec=pcsf-studio %f
+Icon=pcsf-studio
+Terminal=false
+Categories=Science;Geoscience;Education;
+MimeType=application/x-pcsf;application/x-pcsm;

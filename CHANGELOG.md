@@ -41,7 +41,31 @@ First release as a standalone package, extracted from pyCSAMT's
 - `pcsf.schemas`: JSON Schemas of the inversion record and the model
   provenance; extra `pcsf[schema]` for validation.
 
+### Added in phase 4
+- `pcsf.studio`, PCSF Studio: a PySide6 viewer and inspector of
+  `.pcsf`/`.pcsm` files, native runs (Occam2D, ModEM, MARE2DEM) and
+  EMC netCDF files. Sections, depth slices, x/y sections, meshes and
+  multi-line views in matplotlib, with an automatic colour range that
+  ignores air cells, a depth limit and a fit to the survey; tables of
+  stations, metadata, inversion record and conformance; conversion
+  between PCSF and PCSM; PNG/SVG/PDF and CSV exports. The parts
+  without Qt (`sources`, `figures`, `summary`) are usable on their
+  own, and `ModelView` embeds in other Qt applications.
+- `pcsf-studio` launcher, `pcsf studio` command and
+  `python -m pcsf.studio`; `--self-test` checks an installation
+  without a window.
+- `installers/`: PyInstaller spec, Inno Setup script (Windows
+  `setup.exe`, optional `.pcsf`/`.pcsm` association), AppImage and
+  makeself packaging (Linux), and `build.py`, which freezes the
+  application, runs the frozen self-test and packages it. The
+  workflow `studio-installers.yml` builds them on every tag.
+- `read_pcsf` decodes the borehole group through a companion format
+  registered under its kind (`register_format("pcbh", ...)` with a
+  `from_dict`), and returns the stored dictionary otherwise.
+
 ### Fixed
+- The CI workflow ran on pushes to `main`, a branch the repository
+  does not have; it now runs on `master`.
 - The PCSM reader raised a bare NumPy `ValueError` when a block held
   the wrong number of values; it now raises `GeometryError`.
 - PCSM comments referred to `SPEC.md`; they now cite
@@ -53,5 +77,6 @@ First release as a standalone package, extracted from pyCSAMT's
   agree with the previous implementation to 1e-10.
 - Errors are `PCSFError` subclasses (still `ValueError` subclasses where
   they were `ValueError` before).
-- The optional borehole group is carried through unchanged; its meaning
-  belongs to the borehole companion format.
+- The optional borehole group is read as the dictionary it stores
+  unless a companion format registered for it decodes it; its
+  meaning belongs to the borehole companion format.
