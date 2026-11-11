@@ -188,24 +188,27 @@ A viewer, inspector and converter for PCSF models and solver runs.
 - 📤 **Export** figures (PNG, SVG, PDF) and CSV tables; light and dark
   themes.
 
+**Download** — installers that need no Python:
+
+| Platform | Download | Install |
+|---|---|---|
+| Windows 10/11 (64-bit) | [**pcsf-studio-setup.exe**](https://github.com/earthai-tech/pcsf/releases/latest/download/pcsf-studio-setup.exe) | Run the installer. SmartScreen warns on unsigned builds: **More info → Run anyway**. |
+| Linux (x86-64) | [**pcsf-studio-x86_64.AppImage**](https://github.com/earthai-tech/pcsf/releases/latest/download/pcsf-studio-x86_64.AppImage) | `chmod +x pcsf-studio-x86_64.AppImage && ./pcsf-studio-x86_64.AppImage` |
+| Linux (x86-64) | [**pcsf-studio-linux.sh**](https://github.com/earthai-tech/pcsf/releases/latest/download/pcsf-studio-linux.sh) | `sh pcsf-studio-linux.sh` (installs in `~/.local`, no root) |
+
+Checksums (`SHA256SUMS`) and older versions are on the
+[releases page](https://github.com/earthai-tech/pcsf/releases). With
+Python:
+
 ```bash
 pip install "pcsf[studio]"
 pcsf-studio model.pcsf          # or: pcsf studio, python -m pcsf.studio
 ```
 
 <details>
-<summary><b>Installers without Python, and embedding</b></summary>
+<summary><b>Building the installers, and embedding</b></summary>
 
-Each [release](https://github.com/earthai-tech/pcsf/releases/latest)
-carries installers that need no Python:
-
-| Platform | File | Install |
-|---|---|---|
-| Windows 10/11 (64-bit) | `pcsf-studio-<version>-setup.exe` | run the installer |
-| Linux (x86-64) | `pcsf-studio-<version>-x86_64.AppImage` | `chmod +x` and run |
-| Linux (x86-64) | `pcsf-studio-<version>-linux.sh` | `sh pcsf-studio-<version>-linux.sh` (installs in `~/.local`) |
-
-They are built by [installers/build.py](installers/README.md).
+The installers are built by [installers/build.py](installers/README.md).
 `pcsf-studio --self-test` checks an installation without a window.
 
 The widget that shows one model, `pcsf.studio.ModelView`, can be
@@ -250,7 +253,7 @@ semantic versioning; other modules are internal.
 <details>
 <summary><b>Status and roadmap</b></summary>
 
-Version 0.1.0.dev0, format version 0.1.0.
+Version 0.1.0, format version 0.1.0.
 
 | Phase | Content | Status |
 |---|---|---|
@@ -259,7 +262,7 @@ Version 0.1.0.dev0, format version 0.1.0.
 | 3 | pyCSAMT uses pcsf as its format core | ✅ |
 | 4 | PCSF Studio and its installers | ✅ |
 | 5 | reproduction of the paper ([paper/](paper/README.md)) | ✅ |
-| — | first release on PyPI | ⏳ |
+| — | first release (0.1.0) on PyPI, with the Studio installers | ✅ |
 
 See [CHANGELOG.md](CHANGELOG.md).
 

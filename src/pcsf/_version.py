@@ -10,7 +10,7 @@ Two numbers are kept apart on purpose:
     "Versioning") and changes only when the file layout changes.
 """
 
-__version__ = "0.1.0.dev0"
+__version__ = "0.1.0"
 
 #: Specification version written to every file (``pcsf_version`` /
 #: ``PCSM_VERSION``).
