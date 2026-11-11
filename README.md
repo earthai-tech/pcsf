@@ -1,3 +1,35 @@
+<div align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/earthai-tech/pcsf/master/docs/_static/logo/pcsf-logo-dark.svg">
+    <img src="https://raw.githubusercontent.com/earthai-tech/pcsf/master/docs/_static/logo/pcsf-logo.svg" alt="PCSF: Portable Common Subsurface Format" width="560">
+  </picture>
+  <br/><br/>
+  <a href="https://pypi.org/project/pcsf/"><img alt="PyPI" src="https://img.shields.io/pypi/v/pcsf?color=orange&label=PyPI"/></a>
+  <a href="https://github.com/earthai-tech/pcsf/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/earthai-tech/pcsf?label=release&color=blueviolet"/></a>
+  <a href="https://github.com/earthai-tech/pcsf/actions/workflows/ci.yml?query=branch%3Amaster"><img alt="CI" src="https://github.com/earthai-tech/pcsf/actions/workflows/ci.yml/badge.svg?branch=master"/></a>
+  <a href="https://github.com/earthai-tech/pcsf/actions/workflows/docs.yml?query=branch%3Amaster"><img alt="Docs" src="https://github.com/earthai-tech/pcsf/actions/workflows/docs.yml/badge.svg?branch=master"/></a>
+  <a href="https://codecov.io/gh/earthai-tech/pcsf"><img alt="Coverage" src="https://codecov.io/gh/earthai-tech/pcsf/branch/master/graph/badge.svg"/></a>
+  <a href="https://opensource.org/licenses/BSD-3-Clause"><img alt="License" src="https://img.shields.io/badge/license-BSD--3--Clause-blue"/></a>
+  <br/>
+  <img alt="Python" src="https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue?logo=python&logoColor=white"/>
+  <img alt="Format" src="https://img.shields.io/badge/PCSF%20format-0.1.0-2f5fd0"/>
+  <img alt="Platform" src="https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey"/>
+  <a href="https://github.com/astral-sh/ruff"><img alt="Code style: ruff" src="https://img.shields.io/badge/code%20style-ruff-D7FF64?logo=ruff&logoColor=black"/></a>
+  <br/>
+  <a href="https://pypi.org/project/pcsf/"><img alt="Downloads" src="https://img.shields.io/pypi/dm/pcsf?label=downloads&color=brightgreen"/></a>
+  <a href="https://github.com/earthai-tech/pcsf/commits/master"><img alt="Last commit" src="https://img.shields.io/github/last-commit/earthai-tech/pcsf/master"/></a>
+  <a href="https://github.com/earthai-tech/pcsf/issues"><img alt="Issues" src="https://img.shields.io/github/issues/earthai-tech/pcsf"/></a>
+  <a href="https://github.com/earthai-tech/pcsf/pulls"><img alt="PRs welcome" src="https://img.shields.io/badge/PRs-welcome-brightgreen"/></a>
+  <a href="https://github.com/earthai-tech/pcsf/blob/master/CODE_OF_CONDUCT.md"><img alt="Contributor Covenant" src="https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg"/></a>
+  <br/><br/>
+  <strong><a href="https://earthai-tech.github.io/pcsf/">Documentation</a></strong> &middot;
+  <a href="https://github.com/earthai-tech/pcsf/tree/master/spec">Specification</a> &middot;
+  <a href="#pcsf-studio">PCSF Studio</a> &middot;
+  <a href="https://github.com/earthai-tech/pcsf/blob/master/CHANGELOG.md">Changelog</a>
+</div>
+
+---
+
 # pcsf — Portable Common Subsurface Format
 
 **pcsf** is an exchange format for electromagnetic and magnetotelluric
@@ -94,8 +126,11 @@ as its format core (phase 3). See
 PCSF Studio is a viewer and inspector: it opens `.pcsf` and `.pcsm`
 files, Occam2D, ModEM and MARE2DEM runs and EMC netCDF files; draws
 sections, depth slices, meshes and lines; lists stations, metadata,
-the inversion record and the conformance rules; converts between
-PCSF and PCSM; and exports figures and CSV tables.
+the inversion record and the conformance rules; converts solver runs
+(Occam2D folders, ModEM, MARE2DEM and EMC files) to `.pcsf`, `.pcsm`
+or `.pcsm.gz` in batches on its Convert page; and exports figures and
+CSV tables. The statistics panel collapses to the right to give the
+plot more room.
 
 ```bash
 pip install "pcsf[studio]"

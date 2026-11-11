@@ -32,7 +32,7 @@ from ..core.schema import PCSFModel
 from ..core.text import read_pcsm
 from ..exceptions import FormatError
 
-__all__ = ["SOURCE_KINDS", "LoadedModel", "open_source"]
+__all__ = ["SOURCE_KINDS", "LoadedModel", "open_source", "source_kind"]
 
 #: Kinds of input :func:`open_source` recognises.
 SOURCE_KINDS = ("pcsf", "pcsm", "emc", "modem", "mare2dem", "occam2d")
@@ -106,17 +106,78 @@ def _mare2dem(res: Path) -> tuple[PCSFModel, list[Path]]:
     return model, [p for p in (res, log) if p is not None]
 
 
-def _folder(folder: Path) -> tuple[PCSFModel, str, list[Path]]:
-    """Read a run folder with the solver whose files it holds."""
-    rho = sorted(folder.glob("*.rho"))
-    res = [
+def _results(folder: Path) -> list[Path]:
+    """MARE2DEM result files (``name.N.resistivity``) of a folder."""
+    return [
         p
         for p in folder.glob("*.resistivity")
         if re.search(r"\.\d+\.resistivity$", p.name)
     ]
-    if (folder / "Occam2DMesh").exists() or list(
+
+
+def _is_occam2d(folder: Path) -> bool:
+    return (folder / "Occam2DMesh").exists() or any(
         folder.glob("*.iter")
+    )
+
+
+def source_kind(path: str | PathLike[str]) -> str | None:
+    """Kind of a source, from its name or folder content only.
+
+    The model is not read, so this is fast enough to label many
+    files in a list; :func:`open_source` may still fail on a
+    source this function recognises (a malformed file, for
+    example).
+
+    Parameters
+    ----------
+    path : path-like
+        File or folder, as for :func:`open_source`.
+
+    Returns
+    -------
+    str or None
+        One of :data:`SOURCE_KINDS`, or None when *path* does not
+        exist or is not recognised.
+
+    Examples
+    --------
+    >>> from pcsf import datasets
+    >>> from pcsf.studio.sources import source_kind
+    >>> source_kind(datasets.path("modem_tiny"))
+    'modem'
+    >>> source_kind("model.pcsm.gz") is None  # does not exist
+    True
+    """
+    path = Path(path)
+    if path.is_dir():
+        if _is_occam2d(path):
+            return "occam2d"
+        if any(path.glob("*.rho")):
+            return "modem"
+        if _results(path):
+            return "mare2dem"
+        return None
+    if not path.is_file():
+        return None
+    name = path.name.lower()
+    for suffixes, kind in (
+        ((".pcsf",), "pcsf"),
+        ((".pcsm", ".pcsm.gz"), "pcsm"),
+        ((".nc",), "emc"),
+        ((".rho",), "modem"),
+        ((".resistivity",), "mare2dem"),
     ):
+        if name.endswith(suffixes):
+            return kind
+    return None
+
+
+def _folder(folder: Path) -> tuple[PCSFModel, str, list[Path]]:
+    """Read a run folder with the solver whose files it holds."""
+    rho = sorted(folder.glob("*.rho"))
+    res = _results(folder)
+    if _is_occam2d(folder):
         from ..adapters.occam2d import occam2d_to_pcsf
 
         model = occam2d_to_pcsf(folder, created_by=_CREATED_BY)

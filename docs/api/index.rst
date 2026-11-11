@@ -194,7 +194,12 @@ PCSF Studio
    main
    self_test
    sources.open_source
+   sources.source_kind
    sources.LoadedModel
+   convert.convert_source
+   convert.output_paths
+   convert.default_stem
+   convert.ConversionResult
    figures.views
    figures.draw
    figures.restyle
@@ -215,3 +220,4 @@ PCSF Studio
    style.style_sheet
    window.ModelView
    window.StudioWindow
+   convert_page.ConvertPage

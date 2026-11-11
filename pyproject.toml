@@ -71,10 +71,10 @@ docs = [
 
 [project.urls]
 Homepage = "https://github.com/earthai-tech/pcsf"
-Documentation = "https://github.com/earthai-tech/pcsf/tree/main/docs"
+Documentation = "https://earthai-tech.github.io/pcsf/"
 Source = "https://github.com/earthai-tech/pcsf"
 Issues = "https://github.com/earthai-tech/pcsf/issues"
-Changelog = "https://github.com/earthai-tech/pcsf/blob/main/CHANGELOG.md"
+Changelog = "https://github.com/earthai-tech/pcsf/blob/master/CHANGELOG.md"
 
 [project.scripts]
 pcsf = "pcsf.cli.main:main"
