@@ -1,34 +1,24 @@
 name: Publish
 
-# Builds the sdist and the wheel, checks them, publishes them on
-# TestPyPI, installs them back from TestPyPI, and only then
-# publishes them on PyPI.
+# Releases pcsf on PyPI, and only from a version tag on master:
 #
-#   push to master        -> build, check, TestPyPI (smoke test;
-#                            a version already there is skipped)
-#   tag v*  (e.g. v0.1.0)  -> build, check, TestPyPI, install from
-#                            TestPyPI, PyPI
-#   manual run             -> build, check, TestPyPI
+#   push of a tag v* (e.g. v0.1.0) whose commit is on master
+#       -> build and check -> TestPyPI -> install from TestPyPI
+#       -> PyPI
+#   a tag on another branch, or any other push
+#       -> nothing is built or uploaded
 #
-# A tag must match the version in src/pcsf/_version.py.
+# Release: set the version in src/pcsf/_version.py on master, then
+#   git tag v0.1.0 && git push origin v0.1.0
+# The tag must match that version.
 #
-# Publishing uses PyPI trusted publishing (no token in the
-# repository). One-time setup, on https://test.pypi.org and on
-# https://pypi.org: Account settings > Publishing > Add a pending
-# publisher, with
-#   PyPI project name: pcsf
-#   Owner: earthai-tech, Repository: pcsf
-#   Workflow name: publish.yml
-#   Environment: testpypi (TestPyPI) and pypi (PyPI)
-# and create the environments "testpypi" and "pypi" in Settings >
-# Environments (protection rules on "pypi", such as a required
-# reviewer, are recommended).
+# Uploads use API tokens stored as repository secrets:
+#   TEST_PYPI_API_TOKEN  (https://test.pypi.org)
+#   PYPI_API_TOKEN       (https://pypi.org)
 
 on:
   push:
-    branches: [master]
     tags: ["v*"]
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -38,8 +28,31 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  gate:
+    name: tag on master?
+    runs-on: ubuntu-latest
+    outputs:
+      on_master: ${{ steps.check.outputs.on_master }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Is the tagged commit on master?
+        id: check
+        run: |
+          git fetch --no-tags origin master
+          if git merge-base --is-ancestor "$GITHUB_SHA" origin/master; then
+            echo "on_master=true" >> "$GITHUB_OUTPUT"
+            echo "${GITHUB_REF_NAME} is on master: releasing"
+          else
+            echo "on_master=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::${GITHUB_REF_NAME} is not on master; TestPyPI and PyPI are skipped"
+          fi
+
   build:
     name: build and check
+    needs: gate
+    if: needs.gate.outputs.on_master == 'true'
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -55,12 +68,11 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "pcsf $version"
       - name: The tag matches the version
-        if: startsWith(github.ref, 'refs/tags/v')
         run: |
-          tag="${GITHUB_REF#refs/tags/v}"
+          tag="${GITHUB_REF_NAME#v}"
           version="${{ steps.version.outputs.version }}"
           if [ "$tag" != "$version" ]; then
-            echo "::error::tag v$tag does not match version $version"
+            echo "::error::tag v$tag does not match version $version in src/pcsf/_version.py"
             exit 1
           fi
       - name: Absolute links in the README, for the page on PyPI
@@ -75,7 +87,7 @@ jobs:
       - name: Install the wheel in a clean environment
         run: |
           python -m venv /tmp/check
-          /tmp/check/bin/pip install dist/*.whl pytest
+          /tmp/check/bin/pip install dist/*.whl
           cd /tmp
           /tmp/check/bin/python -c "import pcsf; print(pcsf.__version__)"
           /tmp/check/bin/pcsf --help > /dev/null
@@ -91,8 +103,6 @@ jobs:
     environment:
       name: testpypi
       url: https://test.pypi.org/project/pcsf/${{ needs.build.outputs.version }}/
-    permissions:
-      id-token: write
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -101,13 +111,13 @@ jobs:
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           repository-url: https://test.pypi.org/legacy/
-          # TestPyPI, like PyPI, refuses a version twice
+          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+          # a re-run of the same tag does not fail on TestPyPI
           skip-existing: true
 
   verify:
     name: install from TestPyPI
     needs: [build, testpypi]
-    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/setup-python@v5
@@ -132,16 +142,15 @@ jobs:
   pypi:
     name: publish on PyPI
     needs: [build, verify]
-    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     environment:
       name: pypi
       url: https://pypi.org/project/pcsf/${{ needs.build.outputs.version }}/
-    permissions:
-      id-token: write
     steps:
       - uses: actions/download-artifact@v4
         with:
           name: dist
           path: dist/
       - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
