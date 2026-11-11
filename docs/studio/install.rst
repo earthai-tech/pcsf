@@ -19,7 +19,7 @@ not use Python, the second if you do.
          .. grid-item-card:: Windows 10/11
             :class-card: pcsf-nav-card
 
-            ``pcsf-studio-<version>-setup.exe``
+            :bdg-link-primary:`Download pcsf-studio-setup.exe <https://github.com/earthai-tech/pcsf/releases/latest/download/pcsf-studio-setup.exe>`
 
             Run it and follow the steps. SmartScreen warns about
             unsigned installers: *More info*, then *Run anyway*.
@@ -27,23 +27,25 @@ not use Python, the second if you do.
          .. grid-item-card:: Linux AppImage
             :class-card: pcsf-nav-card
 
-            ``pcsf-studio-<version>-x86_64.AppImage``
+            :bdg-link-primary:`Download the AppImage <https://github.com/earthai-tech/pcsf/releases/latest/download/pcsf-studio-x86_64.AppImage>`
 
-            ``chmod +x`` the file and run it; nothing is
-            installed.
+            ``chmod +x pcsf-studio-x86_64.AppImage``, then run
+            it; nothing is installed.
 
          .. grid-item-card:: Linux installer
             :class-card: pcsf-nav-card
 
-            ``pcsf-studio-<version>-linux.sh``
+            :bdg-link-primary:`Download pcsf-studio-linux.sh <https://github.com/earthai-tech/pcsf/releases/latest/download/pcsf-studio-linux.sh>`
 
-            ``sh pcsf-studio-<version>-linux.sh`` installs it in
+            ``sh pcsf-studio-linux.sh`` installs it in
             ``~/.local`` with a menu entry, without root.
 
-      The installers are attached to releases from version 0.1.0
-      on. Until then, use pip, or build them with
-      ``installers/build.py`` (see ``installers/README.md`` in the
-      repository).
+      The links always give the latest release. The files of each
+      version, named ``pcsf-studio-<version>-...``, and their
+      ``SHA256SUMS`` are on the `releases page
+      <https://github.com/earthai-tech/pcsf/releases>`__. To build
+      the installers yourself, see ``installers/README.md`` in the
+      repository.
 
    .. tab-item:: pip
 

@@ -1,9 +1,14 @@
 [
   {
+    "name": "0.1.0 (stable)",
+    "version": "stable",
+    "url": "https://pcsf.readthedocs.io/en/stable/",
+    "preferred": true
+  },
+  {
     "name": "latest (master)",
     "version": "latest",
-    "url": "https://pcsf.readthedocs.io/en/latest/",
-    "preferred": true
+    "url": "https://pcsf.readthedocs.io/en/latest/"
   },
   {
     "name": "dev",

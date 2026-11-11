@@ -12,7 +12,8 @@ authors:
     affiliation: "Institut National Polytechnique Félix Houphouët-Boigny"
 license: BSD-3-Clause
 repository-code: "https://github.com/earthai-tech/pcsf"
-version: 0.1.0.dev0
+version: 0.1.0
+date-released: 2026-11-11
 keywords:
   - magnetotellurics
   - electromagnetic inversion
