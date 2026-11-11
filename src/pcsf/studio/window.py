@@ -9,12 +9,16 @@ application (pyCSAMT's desktop app uses it this way):
   conformance, reading notes) on the left;
 - the plot with its controls in the centre;
 - statistics of the whole model and of the current view, with a
-  histogram of :math:`\\log_{10}\\rho`, on the right.
+  histogram of :math:`\\log_{10}\\rho`, on the right; the panel
+  collapses to a thin strip (click its edge, or Ctrl+2) to give the
+  plot more room.
 
 :class:`StudioWindow` is the standalone application around it: a
 toolbar (the logo at the far left, which leads to the start page;
-open, samples, save, export; the theme and the ``?`` help menus at
-the far right), a start page with recent files, and drag and drop.
+open, samples, convert, save, export; the theme and the ``?`` help
+menus at the far right), a start page with recent files, the
+Convert page (:class:`~pcsf.studio.convert_page.ConvertPage`), which
+writes solver runs as PCSF or PCSM in batches, and drag and drop.
 
 The widgets only display what :mod:`pcsf.studio.figures` draws and
 :mod:`pcsf.studio.summary` computes; they hold no format logic.
@@ -25,9 +29,10 @@ Colours come from a :class:`~pcsf.studio.style.Theme` (light, dark,
 or the one of the desktop). Panels whose content does not fit get
 a scroll bar instead of being cut: the statistics panel and the
 start page vertically, the header chips and the plot controls
-horizontally. The window opens centred on the screen, at most
-:data:`SCREEN_SHARE` of its available area, and remembers its
-size, theme and panel layout between sessions.
+horizontally. The window always opens centred on the screen, at
+:data:`DEFAULT_SIZE` and at most :data:`SCREEN_SHARE` of its
+available area; it remembers its theme and panel layout between
+sessions.
 """
 
 from __future__ import annotations
@@ -46,11 +51,14 @@ from matplotlib.backends.backend_qtagg import (
 from matplotlib.figure import Figure
 from PySide6.QtCore import (
     QByteArray,
+    QEasingCurve,
+    QPointF,
     QRect,
     QSettings,
     QSize,
     Qt,
     QUrl,
+    QVariantAnimation,
     Signal,
 )
 from PySide6.QtGui import (
@@ -58,6 +66,8 @@ from PySide6.QtGui import (
     QActionGroup,
     QColor,
     QDesktopServices,
+    QFont,
+    QFontMetrics,
     QGuiApplication,
     QIcon,
     QKeySequence,
@@ -67,6 +77,7 @@ from PySide6.QtGui import (
     QPixmap,
 )
 from PySide6.QtWidgets import (
+    QAbstractButton,
     QApplication,
     QCheckBox,
     QComboBox,
@@ -102,6 +113,7 @@ from PySide6.QtWidgets import (
 from .. import __version__, datasets
 from ..api import write
 from . import figures, summary
+from .convert_page import ConvertPage
 from .sources import LoadedModel, open_source
 from .style import LIGHT, THEME_NAMES, Theme, get_theme, style_sheet
 
@@ -132,10 +144,11 @@ CMAPS = ("jet_r", "viridis", "turbo_r", "RdYlBu", "Spectral", "gray")
 DOCS_URL = "https://github.com/earthai-tech/pcsf"
 SPEC_URL = "https://github.com/earthai-tech/pcsf/tree/master/spec"
 MAX_RECENT = 8
-#: Largest size (pixels) of the window when it first opens.
-DEFAULT_SIZE = (1280, 820)
-#: Largest share of the available screen the window first takes.
-SCREEN_SHARE = 0.82
+#: Size (pixels) of the window when it opens, as pyCSAMT's desktop
+#: application.
+DEFAULT_SIZE = (1180, 700)
+#: Largest share of the available screen the window opens with.
+SCREEN_SHARE = 0.75
 #: Height (pixels) kept free for a horizontal scroll bar.
 _BAR = 12
 
@@ -544,6 +557,209 @@ class _StatsPanel(QWidget):
         self.hist.draw_idle()
 
 
+class _EdgeButton(QAbstractButton):
+    """Thin, full-height button on the left edge of a side panel.
+
+    It shows a chevron pointing where the panel will go when
+    clicked: right (collapse) while the panel is open, left
+    (expand) while it is collapsed, when the label of the panel
+    is also written vertically, so the strip says what it holds.
+    """
+
+    WIDTH = 18
+
+    def __init__(self, label: str) -> None:
+        super().__init__()
+        self.label = label
+        self.collapsed = False
+        self.theme = LIGHT
+        self.setFixedWidth(self.WIDTH)
+        self.setSizePolicy(
+            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding
+        )
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setAttribute(Qt.WidgetAttribute.WA_Hover)
+
+    def sizeHint(self) -> QSize:
+        return QSize(self.WIDTH, 120)
+
+    def set_collapsed(self, collapsed: bool) -> None:
+        self.collapsed = collapsed
+        what = "Show" if collapsed else "Hide"
+        self.setToolTip(f"{what} the {self.label.lower()} (Ctrl+2)")
+        self.update()
+
+    def paintEvent(self, _: Any) -> None:
+        t = self.theme
+        hot = self.underMouse()
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        box = self.rect().adjusted(1, 1, -1, -1)
+        p.setPen(QPen(QColor(t.line)))
+        p.setBrush(QColor(t.accent_soft if hot else t.panel))
+        p.drawRoundedRect(box, 6, 6)
+        pen = QPen(QColor(t.accent if hot else t.muted), 1.8)
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        p.setPen(pen)
+        cx, cy = box.center().x() + 0.5, 22.0
+        # ">" when the panel is open (it goes right), "<" otherwise
+        d = -3.0 if self.collapsed else 3.0
+        p.drawLine(QPointF(cx - d, cy - 5), QPointF(cx + d, cy))
+        p.drawLine(QPointF(cx + d, cy), QPointF(cx - d, cy + 5))
+        if self.collapsed:
+            font = QFont(self.font())
+            font.setPointSizeF(7.5)
+            font.setBold(True)
+            font.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, 1)
+            p.setFont(font)
+            p.setPen(QColor(t.accent if hot else t.muted))
+            # Turned a quarter clockwise, the glyphs stand to the
+            # right of the baseline: centre their height on the strip.
+            metrics = QFontMetrics(font)
+            x = box.center().x() + 0.5 - metrics.ascent() / 2
+            x += metrics.descent() / 2
+            p.translate(x, 40)
+            p.rotate(90)
+            p.drawText(0, 0, self.label.upper())
+        p.end()
+
+
+class _SidePanel(QWidget):
+    """A panel that collapses to a thin strip on the right.
+
+    Parameters
+    ----------
+    panel : QWidget
+        The panel; it is hidden while collapsed.
+    label : str
+        Name of the panel, written on the collapsed strip.
+
+    Notes
+    -----
+    Signal ``toggled(bool)`` is emitted with the new state (True
+    when expanded) after :meth:`set_expanded` changes it. In a
+    :class:`QSplitter`, the width freed by collapsing goes to the
+    stretching neighbours, and expanding gives back the width the
+    panel had, with a short slide when *animate* is True.
+    """
+
+    toggled = Signal(bool)
+    #: Duration (ms) of the slide.
+    DURATION = 180
+
+    def __init__(self, panel: QWidget, label: str) -> None:
+        super().__init__()
+        self.panel = panel
+        self.edge = _EdgeButton(label)
+        self.expanded = True
+        self._width = 300
+        self._anim: QVariantAnimation | None = None
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(4)
+        lay.addWidget(self.edge)
+        lay.addWidget(panel, 1)
+        self.edge.clicked.connect(self.toggle)
+        self.edge.set_collapsed(False)
+        self._limits = (panel.minimumWidth(), panel.maximumWidth())
+        self._relax()
+
+    def set_theme(self, theme: Theme) -> None:
+        self.edge.theme = theme
+        self.edge.update()
+
+    def toggle(self) -> None:
+        """Collapse an expanded panel, expand a collapsed one."""
+        self.set_expanded(not self.expanded)
+
+    def _strip(self) -> int:
+        return self.edge.WIDTH + 2
+
+    def _relax(self) -> None:
+        """Width limits of the expanded panel."""
+        lo, hi = self._limits
+        gap = self.layout().spacing() + self.edge.WIDTH
+        self.panel.setMinimumWidth(lo)
+        self.setMinimumWidth(lo + gap)
+        self.setMaximumWidth(hi + gap)
+
+    def set_expanded(
+        self, expanded: bool, animate: bool = True
+    ) -> None:
+        """Expand or collapse the panel.
+
+        Parameters
+        ----------
+        expanded : bool
+            True to show the panel, False to keep only the strip.
+        animate : bool, default True
+            Slide instead of jumping; ignored while the widget is
+            not visible.
+        """
+        expanded = bool(expanded)
+        if expanded == self.expanded:
+            return
+        if self._anim is not None:
+            self._anim.stop()
+            self._anim = None
+        self.expanded = expanded
+        self.edge.set_collapsed(not expanded)
+        start = self.width()
+        if not expanded:
+            self._width = max(start, self.minimumWidth())
+        end = self._width if expanded else self._strip()
+        # the panel may be narrower than its minimum while sliding
+        self.panel.setMinimumWidth(0)
+        self.setMinimumWidth(0)
+        if expanded:
+            self.panel.show()
+        if animate and self.isVisible():
+            anim = QVariantAnimation(self)
+            anim.setDuration(self.DURATION)
+            anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+            anim.setStartValue(start)
+            anim.setEndValue(end)
+            anim.valueChanged.connect(
+                lambda w: self._set_width(int(w))
+            )
+            anim.finished.connect(self._settle)
+            self._anim = anim
+            anim.start()
+        else:
+            self._set_width(end)
+            self._settle()
+        self.toggled.emit(expanded)
+
+    def _set_width(self, width: int) -> None:
+        """Take *width* and give the difference to the neighbours.
+
+        In a splitter the width freed (or taken) goes to the widget
+        on the left, the plot, so the others keep their size.
+        """
+        self.setFixedWidth(width)
+        split = self.parentWidget()
+        if not isinstance(split, QSplitter):
+            return
+        sizes = split.sizes()
+        i = split.indexOf(self)
+        if i < 1 or not any(sizes):
+            return
+        sizes[i - 1] += sizes[i] - width
+        sizes[i] = width
+        split.setSizes(sizes)
+
+    def _settle(self) -> None:
+        self._anim = None
+        if self.expanded:
+            width = self.width()
+            self._relax()
+            self._set_width(width)
+            self._relax()
+        else:
+            self.panel.hide()
+            self._set_width(self._strip())
+
+
 def _earth_logs(values: Any) -> np.ndarray:
     rho = np.ravel(np.asarray(values, dtype=float))
     ok = (
@@ -573,6 +789,10 @@ class ModelView(QWidget):
         Inspector tabs.
     stats : QWidget
         Statistics panel.
+    stats_side : QWidget
+        The statistics panel with the strip that collapses it to
+        the right (``stats_side.set_expanded(False)``), which gives
+        its width to the plot.
     split : QSplitter
         Holds the inspector, the plot and the statistics.
     theme : Theme
@@ -617,6 +837,11 @@ class ModelView(QWidget):
         self.canvas.setMinimumSize(260, 200)
         self.tabs = QTabWidget()
         self.stats = _StatsPanel()
+        self.stats_side = _SidePanel(self.stats, "Statistics")
+        # the plot fills the width freed by the panel at once
+        self.stats_side.toggled.connect(
+            lambda _: self.canvas.draw_idle()
+        )
         self._build()
 
     # ------------------------------------------------- layout
@@ -739,11 +964,11 @@ class ModelView(QWidget):
         self.split.setChildrenCollapsible(False)
         self.split.addWidget(self.tabs)
         self.split.addWidget(plot_card)
-        self.split.addWidget(self.stats)
+        self.split.addWidget(self.stats_side)
         self.split.setStretchFactor(0, 0)
         self.split.setStretchFactor(1, 1)
         self.split.setStretchFactor(2, 0)
-        self.split.setSizes([320, 760, 290])
+        self.split.setSizes([300, 640, 300])
 
         lay = QVBoxLayout(self)
         lay.setContentsMargins(10, 10, 10, 10)
@@ -785,6 +1010,7 @@ class ModelView(QWidget):
         old.hide()
         old.deleteLater()
         self.stats.set_theme(theme)
+        self.stats_side.set_theme(theme)
         if self.loaded is None:
             self._paint_empty()
         else:
@@ -1085,7 +1311,7 @@ class _Welcome(QWidget):
         super().__init__()
         self.setObjectName("Page")
         card, lay = _card()
-        card.setFixedWidth(600)
+        card.setFixedWidth(660)
         lay.setContentsMargins(28, 24, 28, 20)
         lay.setSpacing(8)
         logo = QLabel()
@@ -1113,9 +1339,15 @@ class _Welcome(QWidget):
         open_btn.clicked.connect(window.open_file)
         folder_btn = QPushButton("Open run folder...")
         folder_btn.clicked.connect(window.open_folder)
+        convert_btn = QPushButton("Convert runs...")
+        convert_btn.setToolTip(
+            "Convert Occam2D, ModEM, MARE2DEM or EMC output to "
+            "PCSF or PCSM"
+        )
+        convert_btn.clicked.connect(window.show_convert)
         sample_btn = QPushButton("Try a sample")
         sample_btn.setMenu(window.samples_menu)
-        for b in (open_btn, folder_btn, sample_btn):
+        for b in (open_btn, folder_btn, convert_btn, sample_btn):
             b.setCursor(Qt.CursorShape.PointingHandCursor)
             row.addWidget(b)
         row.addStretch(1)
@@ -1227,10 +1459,15 @@ class StudioWindow(QMainWindow):
         self.samples_menu = self._samples_menu()
         self.view = ModelView()
         self.view.plot_failed.connect(self._status)
+        self.convert = ConvertPage()
+        self.convert.start_folder = self._last_folder
+        self.convert.open_requested.connect(self.open)
+        self.convert.message.connect(self._status)
         self.welcome = _Welcome(self)
         self.pages = QStackedWidget()
         self.pages.addWidget(self.welcome)
         self.pages.addWidget(self.view)
+        self.pages.addWidget(self.convert)
         self.setCentralWidget(self.pages)
         self._toolbar()
         self._menus()
@@ -1262,40 +1499,32 @@ class StudioWindow(QMainWindow):
         The size is :data:`DEFAULT_SIZE`, reduced to
         :data:`SCREEN_SHARE` of the available screen (without the
         task bar) when the screen is smaller, so the window never
-        covers the whole desktop.
+        covers the whole desktop. A maximized or full-screen
+        window is brought back to a normal one first.
         """
+        self.setWindowState(Qt.WindowState.WindowNoState)
         area = self._screen_area()
         if area is None:  # no screen (some offscreen platforms)
             self.resize(*DEFAULT_SIZE)
             return
         w = min(DEFAULT_SIZE[0], int(area.width() * SCREEN_SHARE))
         h = min(DEFAULT_SIZE[1], int(area.height() * SCREEN_SHARE))
-        self.resize(w, h)
-        self.move(
+        self.setGeometry(
             area.x() + (area.width() - w) // 2,
             area.y() + (area.height() - h) // 2,
+            w,
+            h,
         )
 
     def _restore_layout(self) -> None:
+        # The window always opens at its default size, centred: a
+        # size kept from an earlier session (possibly maximized, or
+        # on another screen) would make it cover the desktop. Only
+        # the panel layout is restored.
         self.place_default()
         s = self.settings
-        geometry = s.value("geometry")
-        if isinstance(geometry, QByteArray) and not geometry.isEmpty():
-            self.restoreGeometry(geometry)
-            # A size kept from a larger or unplugged screen must
-            # not leave the window out of reach.
-            frame = self.frameGeometry()
-            area = self._screen_area()
-            visible = any(
-                sc.availableGeometry().intersects(frame)
-                for sc in QGuiApplication.screens()
-            )
-            too_big = area is not None and (
-                frame.width() > area.width()
-                or frame.height() > area.height()
-            )
-            if not visible or (too_big and not self.isMaximized()):
-                self.place_default()
+        s.remove("geometry")  # size kept by earlier versions
+        self.convert.load_settings(s)
         split = s.value("split")
         if isinstance(split, QByteArray) and not split.isEmpty():
             self.view.split.restoreState(split)
@@ -1307,9 +1536,12 @@ class StudioWindow(QMainWindow):
             act.setChecked(shown)
 
     def closeEvent(self, event: Any) -> None:
+        if self.convert.busy:  # finish the file being written
+            self.convert.stop()
+            self.convert.wait()
         s = self.settings
-        s.setValue("geometry", self.saveGeometry())
         s.setValue("split", self.view.split.saveState())
+        self.convert.save_settings(s)
         s.setValue("inspector", self.inspector_act.isChecked())
         s.setValue("statistics", self.stats_act.isChecked())
         super().closeEvent(event)
@@ -1349,6 +1581,7 @@ class StudioWindow(QMainWindow):
             app.setPalette(theme_palette(theme))
         self.setStyleSheet(style_sheet(theme))
         self.view.set_theme(theme)
+        self.convert.set_theme(theme)
         self.theme_button.setIcon(_contrast_icon(theme.ink))
         self.theme_actions[self.theme_name].setChecked(True)
         if remember:
@@ -1455,6 +1688,16 @@ class StudioWindow(QMainWindow):
         bar.addAction(self.folder_act)
         bar.addWidget(self._menu_button("Samples", self.samples_menu))
         bar.addSeparator()
+        self.convert_act = self._action(
+            "Convert",
+            self.show_convert,
+            "Ctrl+Shift+C",
+            tip=(
+                "Convert solver runs to PCSF, PCSM or PCSM gzip "
+                "(Ctrl+Shift+C)"
+            ),
+        )
+        bar.addAction(self.convert_act)
         self.save_act = self._action(
             "Save as",
             self._save_as,
@@ -1564,6 +1807,7 @@ class StudioWindow(QMainWindow):
         for act in (self.open_act, self.folder_act):
             file_menu.addAction(act)
         file_menu.addMenu(self.samples_menu)
+        file_menu.addAction(self.convert_act)
         self.recent_menu = file_menu.addMenu("Recent")
         file_menu.addAction(self.reload_act)
         file_menu.addSeparator()
@@ -1581,17 +1825,21 @@ class StudioWindow(QMainWindow):
         view_menu.addSeparator()
         self.inspector_act = QAction("Inspector", self)
         self.stats_act = QAction("Statistics", self)
-        for act, key, panel in (
-            (self.inspector_act, "Ctrl+1", self.view.tabs),
-            (self.stats_act, "Ctrl+2", self.view.stats),
+        for act, key in (
+            (self.inspector_act, "Ctrl+1"),
+            (self.stats_act, "Ctrl+2"),
         ):
             act.setShortcut(QKeySequence(key))
             act.setCheckable(True)
             act.setChecked(True)
-            # toggled, not triggered: it also fires when the
-            # layout of the last session is restored
-            act.toggled.connect(panel.setVisible)
             view_menu.addAction(act)
+        # toggled, not triggered: it also fires when the layout of
+        # the last session is restored
+        self.inspector_act.toggled.connect(self.view.tabs.setVisible)
+        side = self.view.stats_side
+        self.stats_act.toggled.connect(side.set_expanded)
+        # the strip of the panel and the menu stay in step
+        side.toggled.connect(self.stats_act.setChecked)
         view_menu.addSeparator()
         view_menu.addMenu(self.theme_menu)
         view_menu.addAction(
@@ -1738,6 +1986,14 @@ class StudioWindow(QMainWindow):
         self._refresh_recent()
         self.pages.setCurrentWidget(self.welcome)
 
+    def show_convert(self) -> None:
+        """Show the page that converts solver runs."""
+        self.pages.setCurrentWidget(self.convert)
+        self._status(
+            "Add run folders or result files, choose the formats, "
+            "then Convert"
+        )
+
     @staticmethod
     def _local_files(event: Any) -> list[str]:
         data = event.mimeData()
@@ -1756,6 +2012,10 @@ class StudioWindow(QMainWindow):
         if not files:
             return
         event.acceptProposedAction()
+        if self.pages.currentWidget() is self.convert:
+            added = self.convert.add_sources(files)
+            self._status(f"Added {added} source(s) to convert")
+            return
         if self.open(files[0]) and len(files) > 1:
             self._status(
                 f"Opened {Path(files[0]).name}, the first of "
@@ -1840,11 +2100,13 @@ class StudioWindow(QMainWindow):
         rows = (
             ("Ctrl+O", "Open file"),
             ("Ctrl+Shift+O", "Open run folder"),
+            ("Ctrl+Shift+C", "Convert solver runs"),
             ("F5", "Reload the model from disk"),
             ("Ctrl+Shift+S", "Save as"),
             ("Ctrl+E", "Export figure"),
             ("Ctrl+Home", "Start page"),
-            ("Ctrl+1 / Ctrl+2", "Show or hide inspector / statistics"),
+            ("Ctrl+1", "Show or hide the inspector"),
+            ("Ctrl+2", "Collapse or expand the statistics"),
             ("Ctrl+T", "Switch light / dark theme"),
             ("F1", "This list"),
             ("Ctrl+Q", "Quit"),
@@ -1859,7 +2121,8 @@ class StudioWindow(QMainWindow):
         box.setTextFormat(Qt.TextFormat.RichText)
         box.setText(
             f"<table cellspacing='4'>{body}</table><br>"
-            "Drop a file or a folder on the window to open it."
+            "Drop a file or a folder on the window to open it, or "
+            "on the Convert page to add it to the list."
         )
         box.exec()
 

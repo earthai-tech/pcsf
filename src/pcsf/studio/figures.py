@@ -606,7 +606,13 @@ def draw(
         )
 
     _limits(ax, model, view, index, max_depth, fit)
-    fig.colorbar(artist, ax=ax, label=_LABEL)
+    # A colorbar made with ``ax=ax`` anchors the plot to its right
+    # edge (``panchor``), which leaves the left of a wide canvas
+    # empty for equal-aspect views. An inset keeps the colorbar
+    # next to the plot, and both stay centred at any width; the
+    # constrained layout still makes room for its label.
+    cax = ax.inset_axes((1.03, 0.0, 0.035, 1.0))
+    fig.colorbar(artist, cax=cax, label=_LABEL)
     label = position_label(model, view, index)
     ax.set_title(
         title

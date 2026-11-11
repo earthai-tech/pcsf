@@ -256,15 +256,151 @@ def test_window_fits_and_centres(app, settings):
     centre = win.geometry().center()
     assert abs(centre.x() - area.center().x()) <= 2
     assert abs(centre.y() - area.center().y()) <= 2
-    # size and hidden panels come back in the next session
-    win.resize(720, 600)
+    default = (win.width(), win.height())
+    # the next session opens at the default size again, centred,
+    # but keeps the collapsed panels
+    win.resize(default[0] - 100, default[1] - 100)
     win.stats_act.setChecked(False)
     win.close()
+    assert settings.value("geometry") is None
     again = StudioWindow(settings=settings)
-    assert (again.width(), again.height()) == (720, 600)
+    assert (again.width(), again.height()) == default
     assert not again.stats_act.isChecked()
     assert again.view.stats.isHidden()
     assert again.inspector_act.isChecked()
+
+
+def test_maximized_size_of_older_versions_is_ignored(app, settings):
+    # earlier versions kept the geometry, maximized flag included;
+    # the window opened full screen at every start (regression)
+    win = StudioWindow(settings=settings)
+    win.showMaximized()
+    app.processEvents()
+    settings.setValue("geometry", win.saveGeometry())
+    win.close()
+    again = StudioWindow(settings=settings)
+    assert not again.isMaximized()
+    area = again.screen().availableGeometry()
+    assert again.width() < area.width()
+    assert settings.value("geometry") is None
+
+
+def test_statistics_collapse_to_the_right(app, settings):
+    win = StudioWindow(settings=settings)
+    win.open(datasets.path("modem_tiny"))
+    win.show()
+    app.processEvents()
+    side = win.view.stats_side
+    split = win.view.split
+    plot_before = split.sizes()[1]
+    seen = []
+    side.toggled.connect(seen.append)
+    side.set_expanded(False, animate=False)
+    app.processEvents()
+    assert win.view.stats.isHidden()
+    assert side.width() <= side.edge.WIDTH + 4
+    assert split.sizes()[1] > plot_before  # the plot got the room
+    assert not win.stats_act.isChecked()  # the menu follows
+    # the strip expands it again, at its former width
+    side.edge.click()
+    app.processEvents()
+    assert side.expanded and win.stats_act.isChecked()
+    assert seen == [False, True]
+    for _ in range(50):  # let the slide finish
+        app.processEvents()
+        if side._anim is None:
+            break
+        side._anim.setCurrentTime(side.DURATION)
+    assert not win.view.stats.isHidden()
+    assert side.width() > 200
+    # Ctrl+2 drives the same panel
+    win.stats_act.setChecked(False)
+    assert not side.expanded
+    win.close()
+
+
+def test_convert_page_converts_in_a_thread(app, tmp_path, settings):
+    from pcsf import read
+
+    win = StudioWindow(settings=settings)
+    win.show_convert()
+    page = win.convert
+    assert win.pages.currentWidget() is page
+    assert not page.convert_btn.isEnabled()  # empty list
+    bad = tmp_path / "notes.txt"
+    bad.write_text("not a model")
+    added = page.add_sources(
+        [
+            datasets.path("occam2d_tiny"),
+            datasets.path("modem_tiny"),
+            datasets.path("occam2d_tiny"),  # duplicate
+            bad,  # not recognised
+        ]
+    )
+    assert added == 2 and page.table.rowCount() == 2
+    assert "Skipped" in page.log.toPlainText()
+    kinds = [page.table.item(r, 1).text() for r in range(2)]
+    assert kinds == ["Occam2D run", "ModEM model"]
+    page.format_boxes["pcsm.gz"].setChecked(True)
+    page.into.setChecked(True)
+    assert not page.convert_btn.isEnabled()  # no folder yet
+    out = tmp_path / "out"
+    page.folder_edit.setText(str(out))
+    assert page.convert_btn.isEnabled()
+    page.open_box.setChecked(True)
+    done = []
+    page.run_done.connect(done.append)
+    assert page.start()
+    assert page.busy and not page.convert_btn.isEnabled()
+    assert page.wait()
+    assert len(page.results) == 2 and done == [2]
+    names = sorted(p.name for p in out.iterdir())
+    assert len(names) == 4
+    assert all(n.endswith((".pcsf", ".pcsm.gz")) for n in names)
+    for path in out.iterdir():
+        assert read(path).kind in ("grid2d", "grid3d")
+    assert page.progress.value() == 2
+    assert "Converted 2 source(s)" in page.log.toPlainText()
+    # the first result is opened in the viewer
+    assert win.pages.currentWidget() is win.view
+    assert win.view.loaded.kind == "pcsf"
+    # a second run without "replace" reports each source as failed
+    win.show_convert()
+    page.open_box.setChecked(False)
+    assert page.start() and page.wait()
+    log = page.log.toPlainText()
+    assert log.count("FAIL") == 2 and "exists" in log
+    states = [page.table.item(r, 2).text() for r in range(2)]
+    assert states == ["failed", "failed"]
+    # the choices come back in the next session
+    win.close()
+    again = StudioWindow(settings=settings)
+    assert again.convert.formats() == ["pcsf", "pcsm.gz"]
+    assert again.convert.out_dir() == out
+
+
+def test_convert_page_drop_adds_sources(app, settings):
+    win = StudioWindow(settings=settings)
+    win.show_convert()
+
+    class _Drop:
+        def __init__(self, paths):
+            from PySide6.QtCore import QMimeData, QUrl
+
+            self.data = QMimeData()
+            self.data.setUrls(
+                [QUrl.fromLocalFile(str(p)) for p in paths]
+            )
+
+        def mimeData(self):
+            return self.data
+
+        def acceptProposedAction(self):
+            pass
+
+    win.dropEvent(_Drop([datasets.path("mare2dem_tiny")]))
+    assert win.convert.table.rowCount() == 1
+    assert win.pages.currentWidget() is win.convert
 
 
 def test_panels_scroll_instead_of_clipping(app, settings):
@@ -272,11 +408,16 @@ def test_panels_scroll_instead_of_clipping(app, settings):
 
     win = StudioWindow(settings=settings)
     win.open(datasets.path("modem_tiny"))
-    win.resize(1280, 820)
     win.show()
-    app.processEvents()
     areas = win.view.stats.findChildren(QScrollArea)
     assert len(areas) == 1
+    # A window tall enough for the tiles and the histogram shows no
+    # scroll bar. The height depends on the fonts of the platform
+    # (taller on Linux than on Windows), so it is taken from the
+    # content instead of being fixed.
+    body = areas[0].widget().sizeHint().height()
+    win.resize(1280, body + 700)
+    app.processEvents()
     assert not areas[0].verticalScrollBar().isVisible()
     # a short window scrolls the statistics
     win.resize(1280, 420)

@@ -389,6 +389,23 @@ QListWidget#Recent::item:selected {{
     background: {t.selection}; color: {t.ink};
 }}
 
+QLineEdit, QPlainTextEdit#Log {{
+    padding: 4px 6px; border: 1px solid {t.line};
+    border-radius: 5px; background: {t.panel};
+    selection-background-color: {t.selection};
+    selection-color: {t.ink};
+}}
+QLineEdit:focus {{ border-color: {t.accent}; }}
+QPlainTextEdit#Log {{ background: {t.raised}; }}
+QProgressBar {{
+    border: 1px solid {t.line}; border-radius: 5px;
+    background: {t.raised}; text-align: center; min-height: 18px;
+    color: {t.ink};
+}}
+QProgressBar::chunk {{
+    background: {t.accent}; border-radius: 4px;
+}}
+
 QComboBox, QDoubleSpinBox {{
     padding: 3px 6px; border: 1px solid {t.line};
     border-radius: 5px; background: {t.panel};

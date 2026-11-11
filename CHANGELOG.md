@@ -110,7 +110,37 @@ First release as a standalone package, extracted from pyCSAMT's
 - New conformance rule C10 (`0 <= region id < n_regions`) and the
   rule-breaking case `rule_c10_region_base`.
 
+### Added for PCSF Studio and the release
+- Convert page (`pcsf.studio.convert_page.ConvertPage`): converts any
+  number of Occam2D run folders, ModEM `.rho`, MARE2DEM
+  `.N.resistivity` and EMC `.nc` files, and PCSF/PCSM files, to
+  `.pcsf`, `.pcsm` and `.pcsm.gz`, next to each source or into one
+  folder, in a worker thread, with a log of the geometry kind,
+  conformance and reading notes per source. Toolbar *Convert*,
+  `Ctrl+Shift+C`, and *Convert runs...* on the start page; sources
+  can be dropped on the page. The work is done by the Qt-free
+  `pcsf.studio.convert.convert_source`; `sources.source_kind` names a
+  source without reading it.
+- The statistics panel collapses to a strip on the right (click its
+  edge, or `Ctrl+2`), with a short slide, and gives its width to the
+  plot.
+- Logo of the format (`docs/_static/logo/pcsf-logo.svg`, a dark
+  variant and the symbol alone), and the README header with the logo
+  and badges.
+- Workflows: `coverage.yml` (pytest with coverage, Codecov),
+  `publish.yml` (build, check, TestPyPI, install from TestPyPI, then
+  PyPI on a `v*` tag, with trusted publishing), and the publication
+  of the documentation on GitHub Pages in `docs.yml`.
+
 ### Fixed
+- PCSF Studio opened full screen when the last session ended
+  maximized: the window kept its geometry, maximized flag included.
+  It now always opens centred at 1180 x 700 pixels (at most three
+  quarters of the screen) and keeps only the theme and the panel
+  layout.
+- The plot of PCSF Studio was pushed against its colour bar, leaving
+  the left of a wide canvas empty; the colour bar is now an inset of
+  the plot and both stay centred.
 - The CI workflow ran on pushes to `main`, a branch the repository
   does not have; it now runs on `master`.
 - The PCSM reader raised a bare NumPy `ValueError` when a block held
