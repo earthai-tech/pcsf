@@ -10,7 +10,7 @@
   <a href="https://github.com/earthai-tech/pcsf/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/earthai-tech/pcsf?label=release&color=blueviolet"/></a>
   <a href="https://github.com/earthai-tech/pcsf/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/earthai-tech/pcsf/actions/workflows/ci.yml/badge.svg"/></a>
   <a href="https://github.com/earthai-tech/pcsf/actions/workflows/docs.yml"><img alt="Docs" src="https://github.com/earthai-tech/pcsf/actions/workflows/docs.yml/badge.svg"/></a>
-  <a href="https://codecov.io/gh/earthai-tech/pcsf"><img alt="Coverage" src="https://codecov.io/gh/earthai-tech/pcsf/graph/badge.svg"/></a>
+  <a href="https://codecov.io/github/earthai-tech/pcsf"><img alt="Coverage" src="https://codecov.io/github/earthai-tech/pcsf/graph/badge.svg?token=75F2FYN2MW"/></a>
   <a href="https://opensource.org/licenses/BSD-3-Clause"><img alt="License: BSD-3-Clause" src="https://img.shields.io/badge/license-BSD--3--Clause-blue"/></a>
   <br/>
   <img alt="Python" src="https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue?logo=python&logoColor=white"/>
