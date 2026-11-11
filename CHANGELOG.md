@@ -129,8 +129,9 @@ First release as a standalone package, extracted from pyCSAMT's
   and badges.
 - Workflows: `coverage.yml` (pytest with coverage, Codecov),
   `publish.yml` (build, check, TestPyPI, install from TestPyPI, then
-  PyPI on a `v*` tag, with trusted publishing), and the publication
-  of the documentation on GitHub Pages in `docs.yml`.
+  PyPI on a `v*` tag, with trusted publishing).
+- Version switcher of the documentation on Read the Docs
+  (https://pcsf.readthedocs.io), fed by `docs/_static/switcher.json`.
 
 ### Fixed
 - PCSF Studio opened full screen when the last session ended

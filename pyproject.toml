@@ -71,7 +71,7 @@ docs = [
 
 [project.urls]
 Homepage = "https://github.com/earthai-tech/pcsf"
-Documentation = "https://earthai-tech.github.io/pcsf/"
+Documentation = "https://pcsf.readthedocs.io"
 Source = "https://github.com/earthai-tech/pcsf"
 Issues = "https://github.com/earthai-tech/pcsf/issues"
 Changelog = "https://github.com/earthai-tech/pcsf/blob/master/CHANGELOG.md"

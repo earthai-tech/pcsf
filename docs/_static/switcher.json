@@ -1,0 +1,13 @@
+[
+  {
+    "name": "latest (master)",
+    "version": "latest",
+    "url": "https://pcsf.readthedocs.io/en/latest/",
+    "preferred": true
+  },
+  {
+    "name": "dev",
+    "version": "dev",
+    "url": "https://pcsf.readthedocs.io/en/dev/"
+  }
+]
