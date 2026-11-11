@@ -41,6 +41,7 @@ extensions = [
     "numpydoc",
     "myst_parser",
     "sphinx_copybutton",
+    "sphinx_design",
 ]
 # Pages are reStructuredText; Markdown is parsed only where a page
 # includes the specification or the changelog, kept in one place.

@@ -118,4 +118,4 @@ Next steps
   geometry kinds.
 - :doc:`../user_guide/adapters` lists the supported solvers.
 - :doc:`cli` does the same from a terminal.
-- :doc:`../user_guide/studio` opens models in a window.
+- :doc:`../studio/index` opens models in a window.
