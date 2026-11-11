@@ -15,7 +15,7 @@ installers/build.sh --setup          # Linux, macOS, Git Bash
 ```
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File installersuild.ps1 -Setup
+powershell -ExecutionPolicy Bypass -File installers\build.ps1 -Setup
 ```
 
 `--setup`/`-Setup` installs the build requirements into the chosen

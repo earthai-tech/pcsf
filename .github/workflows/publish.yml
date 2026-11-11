@@ -63,6 +63,10 @@ jobs:
             echo "::error::tag v$tag does not match version $version"
             exit 1
           fi
+      - name: Absolute links in the README, for the page on PyPI
+        # The README links images and files relative to the
+        # repository; PyPI needs URLs, here of the commit published.
+        run: python tools/pypi_readme.py README.md "$GITHUB_SHA"
       - name: Build
         run: |
           python -m pip install --upgrade pip build twine

@@ -408,11 +408,16 @@ def test_panels_scroll_instead_of_clipping(app, settings):
 
     win = StudioWindow(settings=settings)
     win.open(datasets.path("modem_tiny"))
-    win.resize(1280, 820)
     win.show()
-    app.processEvents()
     areas = win.view.stats.findChildren(QScrollArea)
     assert len(areas) == 1
+    # A window tall enough for the tiles and the histogram shows no
+    # scroll bar. The height depends on the fonts of the platform
+    # (taller on Linux than on Windows), so it is taken from the
+    # content instead of being fixed.
+    body = areas[0].widget().sizeHint().height()
+    win.resize(1280, body + 700)
+    app.processEvents()
     assert not areas[0].verticalScrollBar().isVisible()
     # a short window scrolls the statistics
     win.resize(1280, 420)
