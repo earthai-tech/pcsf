@@ -9,8 +9,8 @@
   <a href="https://pypi.org/project/pcsf/"><img alt="PyPI" src="https://img.shields.io/pypi/v/pcsf?color=orange&label=PyPI"/></a>
   <a href="https://github.com/earthai-tech/pcsf/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/earthai-tech/pcsf?label=release&color=blueviolet"/></a>
   <a href="https://github.com/earthai-tech/pcsf/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/earthai-tech/pcsf/actions/workflows/ci.yml/badge.svg"/></a>
-  <a href="https://github.com/earthai-tech/pcsf/actions/workflows/docs.yml"><img alt="Docs" src="https://github.com/earthai-tech/pcsf/actions/workflows/docs.yml/badge.svg"/></a>
-  <a href="https://codecov.io/gh/earthai-tech/pcsf"><img alt="Coverage" src="https://codecov.io/gh/earthai-tech/pcsf/graph/badge.svg"/></a>
+  <a href="https://pcsf.readthedocs.io/en/latest/"><img alt="Documentation" src="https://readthedocs.org/projects/pcsf/badge/?version=latest"/></a>
+  <a href="https://codecov.io/github/earthai-tech/pcsf"><img alt="Coverage" src="https://codecov.io/github/earthai-tech/pcsf/graph/badge.svg?token=75F2FYN2MW"/></a>
   <a href="https://opensource.org/licenses/BSD-3-Clause"><img alt="License: BSD-3-Clause" src="https://img.shields.io/badge/license-BSD--3--Clause-blue"/></a>
   <br/>
   <img alt="Python" src="https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue?logo=python&logoColor=white"/>
@@ -26,7 +26,7 @@
   <a href="CODE_OF_CONDUCT.md"><img alt="Contributor Covenant" src="https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg"/></a>
   <br/><br/>
 
-**[Documentation](https://earthai-tech.github.io/pcsf/)** ·
+**[Documentation](https://pcsf.readthedocs.io)** ·
 [Specification](spec/pcsf-0.1.md) ·
 [Quick start](#quick-start) ·
 [PCSF Studio](#pcsf-studio) ·

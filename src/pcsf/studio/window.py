@@ -141,7 +141,7 @@ LOG10_RHO = "log\N{SUBSCRIPT ONE}\N{SUBSCRIPT ZERO}" + RHO
 #: Colour maps offered in the plot panel.
 CMAPS = ("jet_r", "viridis", "turbo_r", "RdYlBu", "Spectral", "gray")
 #: Links of the help menu.
-DOCS_URL = "https://github.com/earthai-tech/pcsf"
+DOCS_URL = "https://pcsf.readthedocs.io"
 SPEC_URL = "https://github.com/earthai-tech/pcsf/tree/master/spec"
 MAX_RECENT = 8
 #: Size (pixels) of the window when it opens, as pyCSAMT's desktop
