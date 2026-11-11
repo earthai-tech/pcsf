@@ -43,7 +43,7 @@ Optional features
      - coordinate reference systems
    * - ``studio``
      - PySide6, matplotlib
-     - :doc:`PCSF Studio <../user_guide/studio>`, the graphical
+     - :doc:`PCSF Studio <../studio/index>`, the graphical
        viewer
    * - ``all``
      - all of the above

@@ -330,6 +330,7 @@ class ConvertPage(QWidget):
         lay.addLayout(top, 3)
         lay.addWidget(log, 2)
         self.table.itemSelectionChanged.connect(self._update_actions)
+        self._reset_progress()
         self._update_actions()
 
     def set_theme(self, theme: Theme) -> None:
@@ -406,6 +407,8 @@ class ConvertPage(QWidget):
                 "Skipped (not a solver run or model file): "
                 + ", ".join(skipped)
             )
+        if added:
+            self._reset_progress()
         self._update_actions()
         return added
 
@@ -432,6 +435,7 @@ class ConvertPage(QWidget):
         )
         for row in rows:
             self.table.removeRow(row)
+        self._reset_progress()
         self._update_actions()
 
     def clear(self) -> None:
@@ -439,8 +443,16 @@ class ConvertPage(QWidget):
         self.table.setRowCount(0)
         self.log.clear()
         self.results = []
-        self.progress.setValue(0)
+        self._reset_progress()
         self._update_actions()
+
+    def _reset_progress(self) -> None:
+        """Progress of a run not started: 0 of the sources listed."""
+        n = self.table.rowCount()
+        # a range of (0, 0) would show a busy indicator instead
+        self.progress.setRange(0, max(n, 1))
+        self.progress.setValue(0)
+        self.progress.setFormat("%v / %m" if n else "")
 
     def _choose_folder(self) -> None:
         path = QFileDialog.getExistingDirectory(
@@ -558,6 +570,7 @@ class ConvertPage(QWidget):
         for row, _ in jobs:
             self._set_status(row, "waiting", None)
         self.progress.setRange(0, len(jobs))
+        self.progress.setFormat("%v / %m")
         self.progress.setValue(0)
         thread = QThread(self)
         worker = _Worker(jobs, options)

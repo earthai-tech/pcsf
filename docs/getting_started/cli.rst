@@ -39,7 +39,7 @@ Examples
 output, for reading by eye; the canonical values stay linear.
 
 PCSF Studio has its own launcher, described in
-:doc:`../user_guide/studio`:
+:doc:`../studio/index`:
 
 .. code-block:: bash
 

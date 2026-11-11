@@ -15,4 +15,3 @@ computed from it.
    inversion_record
    conformance
    algorithms
-   studio

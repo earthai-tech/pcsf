@@ -16,3 +16,70 @@ figure img {
   border: 1px solid var(--pst-color-border);
   border-radius: 8px;
 }
+
+/* ---------------------------------------------------- home page */
+.pcsf-hero {
+  text-align: center;
+  padding: 1.5rem 0 1rem;
+}
+.pcsf-hero img.pcsf-hero-logo {
+  max-width: 100%;
+  margin-bottom: 0.5rem;
+}
+.pcsf-tagline {
+  font-size: 1.2rem;
+  color: var(--pst-color-text-muted);
+  max-width: 40rem;
+  margin: 0 auto 1.4rem;
+}
+.pcsf-hero .pcsf-hero-button {
+  margin: 0.25rem 0.3rem;
+  min-width: 9.5rem;
+  font-weight: 600;
+}
+/* The home page has no title of its own (the hero shows the logo):
+   its sections are the top level, drawn at the size of a section. */
+section#why-pcsf > h1,
+section#in-a-few-lines > h1,
+section#documentation > h1,
+section#pcsf-studio:not(:first-of-type) > h1,
+section#citing-and-licence > h1 {
+  font-size: 1.65rem;
+  margin-top: 2.2rem;
+}
+
+.pcsf-why-card,
+.pcsf-nav-card {
+  border-radius: 10px;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.pcsf-why-card .sd-card-title,
+.pcsf-nav-card .sd-card-title {
+  font-weight: 700;
+}
+.pcsf-why-card {
+  border-top: 3px solid var(--pst-color-primary);
+}
+.pcsf-nav-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+}
+
+/* Screenshots: full width, with a soft frame. */
+figure.pcsf-shot img {
+  width: 100%;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.10);
+}
+
+/* The hero buttons sit side by side (each is its own paragraph). */
+.pcsf-hero p:has(> .sd-btn) {
+  display: inline-block;
+  margin: 0;
+}
+
+/* Long file names wrap inside narrow cards instead of being cut. */
+.pcsf-nav-card code,
+.pcsf-nav-card code span.pre {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}

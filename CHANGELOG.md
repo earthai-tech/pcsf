@@ -128,8 +128,16 @@ First release as a standalone package, extracted from pyCSAMT's
   variant and the symbol alone), and the README header with the logo
   and badges.
 - Workflows: `coverage.yml` (pytest with coverage, Codecov),
-  `publish.yml` (build, check, TestPyPI, install from TestPyPI, then
-  PyPI on a `v*` tag, with trusted publishing).
+  `publish.yml` (runs only for a `v*` tag whose commit is on master:
+  build, check, TestPyPI, install from TestPyPI, then PyPI, with the
+  API tokens `TEST_PYPI_API_TOKEN` and `PYPI_API_TOKEN`; a tag on
+  another branch skips both uploads).
+- Documentation: a new home page (logo, buttons, cards for each part,
+  quick start in tabs; the table of contents moved to the navigation
+  bar), and a PCSF Studio section of its own: getting the application
+  (installers, pip, pyCSAMT), an annotated tour of the window, viewing
+  models, converting solver runs and a reference, with screenshots of
+  real models. `sphinx-design` joins the `docs` extra.
 - Version switcher of the documentation on Read the Docs
   (https://pcsf.readthedocs.io), fed by `docs/_static/switcher.json`.
 
